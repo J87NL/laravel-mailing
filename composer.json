@@ -1,0 +1,67 @@
+{
+    "name": "j87nl/laravel-mailing",
+    "description": "Mailing lists for Laravel: double opt-in sign-up, consent records, one-click unsubscribe, suppressions and imports.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "mailing",
+        "newsletter",
+        "double-opt-in",
+        "rfc8058"
+    ],
+    "homepage": "https://github.com/J87NL/laravel-mailing",
+    "authors": [
+        {
+            "name": "Johan Montenij",
+            "homepage": "https://j87.nl"
+        }
+    ],
+    "require": {
+        "php": "^8.5",
+        "illuminate/console": "^13.0",
+        "illuminate/database": "^13.0",
+        "illuminate/http": "^13.0",
+        "illuminate/mail": "^13.0",
+        "illuminate/routing": "^13.0",
+        "illuminate/support": "^13.0",
+        "illuminate/validation": "^13.0",
+        "illuminate/view": "^13.0",
+        "inertiajs/inertia-laravel": "^3.0",
+        "tranquil-tools/laravel-vue-form-builder": "^1.10",
+        "tranquil-tools/laravel-vue-table-builder": "^1.9"
+    },
+    "require-dev": {
+        "j87nl/laravel-cms": "^0.1",
+        "orchestra/testbench": "^11.0",
+        "pestphp/pest": "^5.0"
+    },
+    "suggest": {
+        "j87nl/laravel-cms": "Registers the sign-up block in the CMS block registry."
+    },
+    "autoload": {
+        "psr-4": {
+            "J87NL\\Mailing\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "J87NL\\Mailing\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "J87NL\\Mailing\\MailingServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
