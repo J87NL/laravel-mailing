@@ -40,7 +40,7 @@ class ListHeaders
         return sprintf('"%s" <%s.%s>', $name, $list->key, $this->domain());
     }
 
-    private function domain(): string
+    public function domain(): string
     {
         $configured = config('mailing.list_id_domain');
 

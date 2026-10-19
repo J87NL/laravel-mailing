@@ -7,6 +7,7 @@ namespace J87NL\Mailing\Enums;
 enum SuppressionReason: string
 {
     case HardBounce = 'hard_bounce';
+    case SoftBounces = 'soft_bounces';
     case Complaint = 'complaint';
     case Manual = 'manual';
     case UnsubscribeAll = 'unsubscribe_all';

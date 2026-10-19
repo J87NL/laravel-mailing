@@ -15,4 +15,9 @@ return [
         'subject' => 'Would you like to receive the mailings of :list?',
         'intro' => 'Your email address is in our address list for :list. We only send you mailings once you confirm with the button below.',
     ],
+    'campaign' => [
+        'sender' => 'Sent by :sender.',
+        'reason' => 'You receive this mail because you signed up for :list.',
+        'unsubscribe' => 'Unsubscribe',
+    ],
 ];

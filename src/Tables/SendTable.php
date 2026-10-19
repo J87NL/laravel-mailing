@@ -1,0 +1,63 @@
+<?php
+
+declare(strict_types=1);
+
+namespace J87NL\Mailing\Tables;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+use J87NL\Mailing\Enums\SendStatus;
+use J87NL\Mailing\MailingPermission;
+use J87NL\Mailing\Models\Send;
+use TranquilTools\TableBuilder\AbstractTable;
+use TranquilTools\TableBuilder\TableBuilder;
+
+final class SendTable extends AbstractTable
+{
+    public function __construct(
+        private readonly int $campaignId,
+    ) {}
+
+    public function authorize(Request $request): bool
+    {
+        return (bool) $request->user()?->can(MailingPermission::CampaignsEdit->value);
+    }
+
+    public function signedParameters(): array
+    {
+        return [
+            'campaignId' => $this->campaignId,
+        ];
+    }
+
+    /**
+     * @return Builder<Send>
+     */
+    public function for(): Builder
+    {
+        return Send::query()
+            ->where('campaign_id', $this->campaignId)
+            ->orderBy('id');
+    }
+
+    public function configure(TableBuilder $table): void
+    {
+        $statuses = [];
+
+        foreach (SendStatus::cases() as $status) {
+            $statuses[$status->value] = $status->label();
+        }
+
+        $table
+            ->withGlobalSearch(columns: [
+                'email',
+            ])
+            ->selectFilter('status', $statuses, __('mailing::campaigns.fields.status'))
+            ->column('email', __('mailing::subscribers.fields.email'))
+            ->column('status', __('mailing::campaigns.fields.status'), as: fn (mixed $value, Send $send): string => $send->status->label())
+            ->column('attempts', __('mailing::campaigns.fields.attempts'))
+            ->column('handed_over_at', __('mailing::campaigns.fields.handed_over_at'), as: fn (mixed $value, Send $send): string => $send->handed_over_at?->isoFormat('D MMM HH:mm') ?? '')
+            ->column('last_response', __('mailing::campaigns.fields.last_response'), as: fn (mixed $value, Send $send): string => (string) ($send->bounce_diagnostic ?? $send->last_response))
+            ->paginate(50);
+    }
+}

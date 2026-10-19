@@ -28,6 +28,7 @@
         "illuminate/validation": "^13.0",
         "illuminate/view": "^13.0",
         "inertiajs/inertia-laravel": "^3.0",
+        "symfony/html-sanitizer": "^7.4.13|^8.0.13",
         "tranquil-tools/laravel-vue-form-builder": "^1.10",
         "tranquil-tools/laravel-vue-table-builder": "^1.9"
     },

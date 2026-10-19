@@ -1,0 +1,20 @@
+{
+    "id": "evt_failed",
+    "event": "message.failed",
+    "timestamp": "2026-10-19T12:00:00.000Z",
+    "data": {
+        "message_id": "lm_msg_01",
+        "recipient": "lid@example.org",
+        "metadata": {
+            "send_id": "__SEND__"
+        },
+        "tag": "campaign-1",
+        "headers": [],
+        "reason": "Rejected by policy",
+        "response": {
+            "status_code": 554,
+            "enhanced_status_code": "5.7.1",
+            "content": "Rejected"
+        }
+    }
+}

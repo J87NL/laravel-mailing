@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use J87NL\Mailing\Actions\StartCampaign;
 use J87NL\Mailing\Enums\ConsentAction;
 use J87NL\Mailing\Enums\SubscriptionStatus;
 use J87NL\Mailing\Enums\SuppressionReason;
 use J87NL\Mailing\Models\ConsentRecord;
+use J87NL\Mailing\Models\Send;
 use J87NL\Mailing\Models\Subscriber;
 use J87NL\Mailing\Models\Subscription;
 use J87NL\Mailing\Models\Suppression;
@@ -151,4 +153,19 @@ test('purging a renewed sign-up keeps the earlier unsubscribe history and ends t
         ->and($subscription->status)->toBe(SubscriptionStatus::Unsubscribed)
         ->and($subscription->unsubscribed_at?->toDateTimeString())->toBe($unsubscribed->created_at?->toDateTimeString())
         ->and($subscription->confirmed_at?->toDateTimeString())->toBe($confirmed->created_at?->toDateTimeString());
+});
+
+test('send records are deleted after 13 months', function (): void {
+    $list = makeList();
+    makeSubscription($list);
+
+    $this->travel(-14)->months();
+    app(StartCampaign::class)->handle(makeCampaign($list));
+    $this->travelBack();
+
+    app(StartCampaign::class)->handle(makeCampaign($list));
+
+    $this->artisan('mailing:prune')->assertSuccessful();
+
+    expect(Send::query()->count())->toBe(1);
 });

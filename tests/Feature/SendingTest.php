@@ -1,0 +1,271 @@
+<?php
+
+declare(strict_types=1);
+
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Mail;
+use J87NL\Mailing\Actions\ChangeCampaignStatus;
+use J87NL\Mailing\Actions\StartCampaign;
+use J87NL\Mailing\Enums\CampaignStatus;
+use J87NL\Mailing\Enums\SendStatus;
+use J87NL\Mailing\Enums\SubscriptionStatus;
+use J87NL\Mailing\Enums\SuppressionReason;
+use J87NL\Mailing\Jobs\SendCampaignMessage;
+use J87NL\Mailing\Models\Send;
+use J87NL\Mailing\Models\Suppression;
+use J87NL\Mailing\Sending\Verp;
+use J87NL\Mailing\Tests\Fakes\FailingTransport;
+use Symfony\Component\Mailer\SentMessage;
+use Symfony\Component\Mime\Email;
+
+beforeEach(function (): void {
+    $this->list = makeList([
+        'throttle_per_minute' => 50,
+        'daily_cap' => null,
+    ]);
+});
+
+test('unconfirmed, unsubscribed and suppressed addresses never receive a campaign', function (): void {
+    makeSubscription($this->list, 'lid@example.org');
+    makeSubscription($this->list, 'wacht@example.org', SubscriptionStatus::Pending);
+    makeSubscription($this->list, 'weg@example.org', SubscriptionStatus::Unsubscribed);
+    makeSubscription($this->list, 'geblokkeerd@example.org');
+    Suppression::query()->create([
+        'email' => 'geblokkeerd@example.org',
+        'reason' => SuppressionReason::HardBounce,
+    ]);
+
+    $campaign = makeCampaign($this->list);
+    app(StartCampaign::class)->handle($campaign);
+
+    expect(Send::query()->pluck('email')->all())->toBe(['lid@example.org']);
+
+    runDispatcher();
+
+    expect(sentMessages()->map(fn (SentMessage $message): string => $message->getEnvelope()->getRecipients()[0]->getAddress())->all())->toBe(['lid@example.org'])
+        ->and($campaign->fresh()->status)->toBe(CampaignStatus::Sent)
+        ->and($campaign->fresh()->finished_at)->not->toBeNull();
+});
+
+test('campaign mails carry the List headers, a plain-text part, the stored Message-ID and a VERP Return-Path', function (): void {
+    $subscription = makeSubscription($this->list);
+    app(StartCampaign::class)->handle(makeCampaign($this->list));
+
+    runDispatcher();
+
+    $send = Send::query()->sole();
+    $message = sentMessages()->sole()->getOriginalMessage();
+
+    expect($message)->toBeInstanceOf(Email::class);
+
+    $headers = $message->getHeaders();
+
+    expect($send->status)->toBe(SendStatus::HandedOver)
+        ->and($send->attempts)->toBe(1)
+        ->and($headers->get('List-Unsubscribe')?->getBodyAsString())->toContain(sprintf('/mailing/unsubscribe/%s', $subscription->unsubscribe_token))
+        ->and($headers->get('List-Unsubscribe-Post')?->getBodyAsString())->toBe('List-Unsubscribe=One-Click')
+        ->and($headers->get('List-Id')?->getBodyAsString())->toBe('"Nieuwsbrief" <nieuws.rommelmarkt.test>')
+        ->and($headers->get('Message-ID')?->getBodyAsString())->toBe($send->message_id)
+        ->and($headers->get('Return-Path')?->getBodyAsString())->toBe(sprintf('<%s>', Verp::address($send->id)))
+        ->and(sentMessages()->sole()->getEnvelope()->getSender()->getAddress())->toBe(Verp::address($send->id))
+        ->and($message->getTextBody())->toContain('Op zaterdag 3 april staan we weer klaar.')
+        ->and($message->getTextBody())->toContain(sprintf('/mailing/unsubscribe/%s', $subscription->unsubscribe_token))
+        ->and($message->getHtmlBody())->toContain('De data voor volgend jaar')
+        ->and($message->getHtmlBody())->toContain('style="margin:0 0 16px;');
+});
+
+test('the dispatcher respects the per-list throttle and the daily cap', function (): void {
+    $this->list->update([
+        'throttle_per_minute' => 2,
+        'daily_cap' => 3,
+    ]);
+
+    foreach (range(1, 5) as $number) {
+        makeSubscription($this->list, sprintf('lid%d@example.org', $number));
+    }
+
+    app(StartCampaign::class)->handle(makeCampaign($this->list));
+
+    $start = CarbonImmutable::parse('2026-11-02 10:00:00');
+    $this->travelTo($start);
+
+    expect(runDispatcher($start)['dispatched'])->toBe(2)
+        ->and(runDispatcher($start)['dispatched'])->toBe(0);
+
+    expect(runDispatcher($start->addMinute())['dispatched'])->toBe(1)
+        ->and(runDispatcher($start->addMinutes(2))['dispatched'])->toBe(0)
+        ->and(runDispatcher($start->addDay()->addMinutes(20))['dispatched'])->toBe(2);
+
+    expect(sentMessages())->toHaveCount(5);
+});
+
+test('the dispatcher respects the per-domain limit for large mailbox providers', function (): void {
+    config()->set('mailing.sending.domain_limits', [
+        'gmail.com' => 1,
+    ]);
+
+    makeSubscription($this->list, 'een@gmail.com');
+    makeSubscription($this->list, 'twee@gmail.com');
+    makeSubscription($this->list, 'drie@ziggo.nl');
+
+    app(StartCampaign::class)->handle(makeCampaign($this->list));
+
+    $now = CarbonImmutable::parse('2026-11-02 10:00:00');
+    $this->travelTo($now);
+
+    expect(runDispatcher($now)['dispatched'])->toBe(2)
+        ->and(runDispatcher($now->addMinute())['dispatched'])->toBe(1);
+});
+
+test('a send is claimed once, so a repeated job sends nothing twice', function (): void {
+    makeSubscription($this->list);
+    app(StartCampaign::class)->handle(makeCampaign($this->list));
+
+    $send = Send::query()->sole();
+
+    SendCampaignMessage::dispatchSync($send->id);
+    SendCampaignMessage::dispatchSync($send->id);
+
+    expect(sentMessages())->toHaveCount(1)
+        ->and($send->fresh()->attempts)->toBe(1);
+});
+
+test('a stale sending row becomes failed and is never retried automatically', function (): void {
+    makeSubscription($this->list);
+    $campaign = makeCampaign($this->list);
+    app(StartCampaign::class)->handle($campaign);
+
+    $send = Send::query()->sole();
+    $send->forceFill([
+        'status' => SendStatus::Sending,
+        'sending_started_at' => now()->subMinutes(31),
+    ])->save();
+
+    expect(runDispatcher()['interrupted'])->toBe(1)
+        ->and($send->fresh()->status)->toBe(SendStatus::Failed)
+        ->and($send->fresh()->last_response)->toBe('interrupted');
+
+    runDispatcher(CarbonImmutable::now()->addHours(5));
+
+    expect(sentMessages())->toHaveCount(0)
+        ->and($send->fresh()->status)->toBe(SendStatus::Failed);
+
+    expect(app(ChangeCampaignStatus::class)->retryFailed($campaign))->toBe(1);
+
+    runDispatcher(CarbonImmutable::now()->addHours(5));
+
+    expect(sentMessages())->toHaveCount(1);
+});
+
+test('a 4xx answer is retried after 15 minutes, 1 hour and 4 hours and then fails', function (): void {
+    Mail::extend('failing', fn (): FailingTransport => new FailingTransport);
+    config()->set('mail.mailers.failing', [
+        'transport' => 'failing',
+    ]);
+    config()->set('mailing.mailer_drivers.failing', 'postfix');
+
+    $this->list->update([
+        'mailer' => 'failing',
+    ]);
+    makeSubscription($this->list);
+    app(StartCampaign::class)->handle(makeCampaign($this->list));
+
+    $send = Send::query()->sole();
+    $now = CarbonImmutable::parse('2026-11-02 10:00:00');
+    $this->travelTo($now);
+
+    runDispatcher($now);
+
+    expect($send->fresh()->status)->toBe(SendStatus::Deferred)
+        ->and($send->fresh()->next_attempt_at?->equalTo($now->addMinutes(15)))->toBeTrue();
+
+    runDispatcher($now->addMinutes(14));
+
+    expect($send->fresh()->attempts)->toBe(1);
+
+    foreach ([[15, 60], [75, 240]] as [$after, $delay]) {
+        $this->travelTo($now->addMinutes($after));
+        runDispatcher($now->addMinutes($after));
+
+        expect($send->fresh()->status)->toBe(SendStatus::Deferred)
+            ->and($send->fresh()->next_attempt_at?->equalTo($now->addMinutes($after + $delay)))->toBeTrue();
+    }
+
+    $this->travelTo($now->addMinutes(315));
+    runDispatcher($now->addMinutes(315));
+
+    expect($send->fresh()->status)->toBe(SendStatus::Failed)
+        ->and($send->fresh()->attempts)->toBe(4);
+});
+
+test('a 5xx answer fails without retries', function (): void {
+    FailingTransport::$code = 554;
+    Mail::extend('failing', fn (): FailingTransport => new FailingTransport);
+    config()->set('mail.mailers.failing', [
+        'transport' => 'failing',
+    ]);
+
+    $this->list->update([
+        'mailer' => 'failing',
+    ]);
+    makeSubscription($this->list);
+    app(StartCampaign::class)->handle(makeCampaign($this->list));
+
+    runDispatcher();
+
+    expect(Send::query()->sole()->status)->toBe(SendStatus::Failed);
+
+    FailingTransport::$code = 450;
+});
+
+test('pausing stops the dispatcher, resuming continues and cancelling drops the queue', function (): void {
+    makeSubscription($this->list, 'een@example.org');
+    makeSubscription($this->list, 'twee@example.org');
+    $campaign = makeCampaign($this->list);
+    app(StartCampaign::class)->handle($campaign);
+
+    $status = app(ChangeCampaignStatus::class);
+
+    expect($status->pause($campaign))->toBeTrue()
+        ->and(runDispatcher()['dispatched'])->toBe(0)
+        ->and($status->resume($campaign))->toBeTrue();
+
+    $this->list->update([
+        'throttle_per_minute' => 1,
+    ]);
+
+    runDispatcher();
+
+    expect(sentMessages())->toHaveCount(1)
+        ->and($status->cancel($campaign))->toBeTrue()
+        ->and(Send::query()->where('status', SendStatus::Cancelled)->count())->toBe(1)
+        ->and(runDispatcher(CarbonImmutable::now()->addMinute())['dispatched'])->toBe(0);
+});
+
+test('a job for a paused campaign leaves its send in the queue', function (): void {
+    makeSubscription($this->list);
+    $campaign = makeCampaign($this->list);
+    app(StartCampaign::class)->handle($campaign);
+    app(ChangeCampaignStatus::class)->pause($campaign);
+
+    SendCampaignMessage::dispatchSync(Send::query()->sole()->id);
+
+    expect(Send::query()->sole()->status)->toBe(SendStatus::Queued)
+        ->and(sentMessages())->toHaveCount(0);
+});
+
+test('a scheduled campaign starts when its time has come and snapshots its recipients then', function (): void {
+    makeSubscription($this->list, 'eerst@example.org');
+    $campaign = makeCampaign($this->list);
+    $at = CarbonImmutable::now()->addHour();
+
+    app(ChangeCampaignStatus::class)->schedule($campaign, $at);
+
+    expect(runDispatcher()['started'])->toBe(0);
+
+    makeSubscription($this->list, 'later@example.org');
+
+    expect(runDispatcher($at)['started'])->toBe(1)
+        ->and(Send::query()->count())->toBe(2)
+        ->and($campaign->fresh()->started_at)->not->toBeNull();
+});

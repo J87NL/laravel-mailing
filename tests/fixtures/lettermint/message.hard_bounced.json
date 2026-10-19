@@ -1,0 +1,19 @@
+{
+    "id": "evt_hard",
+    "event": "message.hard_bounced",
+    "timestamp": "2026-10-19T12:00:00.000Z",
+    "data": {
+        "message_id": "lm_msg_01",
+        "recipient": "lid@example.org",
+        "metadata": {
+            "send_id": "__SEND__"
+        },
+        "tag": "campaign-1",
+        "headers": [],
+        "response": {
+            "status_code": 550,
+            "enhanced_status_code": "5.1.1",
+            "content": "User unknown"
+        }
+    }
+}

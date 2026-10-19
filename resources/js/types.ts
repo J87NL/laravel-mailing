@@ -22,3 +22,32 @@ export type MailingSubscriber = {
         createdAt: string | null;
     } | null;
 };
+
+export type MailingAction = {
+    label: string;
+    url: string;
+    method: 'get' | 'post' | 'delete';
+    confirm: string | null;
+    disabledReason: string | null;
+    variant: 'default' | 'destructive';
+};
+
+export type MailingPreflightItem = {
+    key: string;
+    status: 'ok' | 'warning' | 'error';
+    label: string;
+    message: string;
+};
+
+export type MailingCampaign = {
+    subject: string;
+    list: string;
+    status: string;
+    statusLabel: string;
+    scheduledAt: string | null;
+    startedAt: string | null;
+    finishedAt: string | null;
+    recipients: number;
+    estimatedFinish: string | null;
+    transport: string;
+};

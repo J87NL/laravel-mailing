@@ -10,9 +10,12 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use J87NL\Mailing\Enums\ConsentAction;
 use J87NL\Mailing\Enums\SubscriptionStatus;
+use J87NL\Mailing\Models\BounceEvent;
 use J87NL\Mailing\Models\ConsentRecord;
+use J87NL\Mailing\Models\Send;
 use J87NL\Mailing\Models\Subscriber;
 use J87NL\Mailing\Models\Subscription;
+use J87NL\Mailing\Models\WebhookEvent;
 
 class PruneMailingData extends Command
 {
@@ -38,12 +41,26 @@ class PruneMailingData extends Command
                 ->where('unsubscribed_at', '<', now()->subYears((int) config('mailing.retention.unsubscribed_years', 2))),
         );
 
+        $sendCutoff = now()->subMonths((int) config('mailing.retention.send_records_months', 13));
+
+        $sends = Send::query()
+            ->where('created_at', '<', $sendCutoff)
+            ->delete();
+
+        BounceEvent::query()
+            ->where('created_at', '<', $sendCutoff)
+            ->delete();
+
+        WebhookEvent::query()
+            ->where('created_at', '<', $sendCutoff)
+            ->delete();
+
         $subscribers = Subscriber::query()
             ->whereDoesntHave('subscriptions')
             ->where('updated_at', '<', now()->subDays((int) config('mailing.retention.unconfirmed_days', 30)))
             ->delete();
 
-        $this->info(sprintf('Pruned or ended %d unconfirmed and pruned %d ended subscriptions, and %d subscribers.', $unconfirmed, $ended, $subscribers));
+        $this->info(sprintf('Pruned or ended %d unconfirmed and pruned %d ended subscriptions, %d subscribers and %d send records.', $unconfirmed, $ended, $subscribers, $sends));
 
         return self::SUCCESS;
     }
