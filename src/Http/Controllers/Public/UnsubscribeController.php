@@ -11,6 +11,7 @@ use J87NL\Mailing\Actions\SuppressAddress;
 use J87NL\Mailing\Actions\Unsubscribe;
 use J87NL\Mailing\Enums\SuppressionReason;
 use J87NL\Mailing\Models\Subscription;
+use J87NL\Mailing\Support\ConsentSource;
 
 class UnsubscribeController extends Controller
 {
@@ -37,7 +38,7 @@ class UnsubscribeController extends Controller
         $subscription = $this->find($token);
         $scope = $request->input('scope') === self::SCOPE_ALL ? self::SCOPE_ALL : self::SCOPE_LIST;
         $oneClick = $request->input('List-Unsubscribe') === 'One-Click';
-        $source = $oneClick ? 'one-click' : 'unsubscribe page';
+        $source = $oneClick ? ConsentSource::ONE_CLICK : ConsentSource::UNSUBSCRIBE_PAGE;
 
         if ($scope === self::SCOPE_ALL && ! $oneClick) {
             $suppressAddress->handle($subscription->subscriber->email, SuppressionReason::UnsubscribeAll, $source, null, null, $request->ip());

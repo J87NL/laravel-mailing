@@ -37,7 +37,8 @@ test('an admin creates, edits and deletes a list with transport defaults from co
         'is_public' => true,
     ])->assertRedirect(route('mailing.lists.index'));
 
-    $list = MailingList::query()->sole();
+    $list = MailingList::query()
+        ->sole();
 
     expect($list)
         ->key->toBe('nieuws')
@@ -54,6 +55,11 @@ test('an admin creates, edits and deletes a list with transport defaults from co
     $this->post(route('mailing.lists.store'), [
         'name' => 'Fout',
         'key' => 'Met Spaties',
+    ])->assertSessionHasErrors('key');
+
+    $this->post(route('mailing.lists.store'), [
+        'name' => 'Gereserveerd',
+        'key' => 'webhooks',
     ])->assertSessionHasErrors('key');
 
     $this->put(route('mailing.lists.update', $list), [
@@ -138,13 +144,14 @@ test('an admin sees the history of an address and unsubscribes it by hand', func
     $list = makeList();
     $subscription = makeSubscription($list);
 
-    ConsentRecord::query()->create([
-        'subscriber_id' => $subscription->subscriber_id,
-        'list_id' => $list->id,
-        'action' => ConsentAction::Confirmed,
-        'source' => 'signup: /nieuwsbrief',
-        'ip' => '192.0.2.1',
-    ]);
+    ConsentRecord::query()
+        ->create([
+            'subscriber_id' => $subscription->subscriber_id,
+            'list_id' => $list->id,
+            'action' => ConsentAction::Confirmed,
+            'source' => 'signup: /nieuwsbrief',
+            'ip' => '192.0.2.1',
+        ]);
 
     $this->actingWithPermissions([MailingPermission::Subscribers->value]);
 
@@ -154,7 +161,7 @@ test('an admin sees the history of an address and unsubscribes it by hand', func
 
     expect($page->json('component'))->toBe('mailing/subscribers/Show')
         ->and($page->json('props.subscriber.email'))->toBe('lid@example.org')
-        ->and($page->json('props.history.0.source'))->toBe('signup: /nieuwsbrief')
+        ->and($page->json('props.history.0.source'))->toBe(__('mailing::common.sources.signup', ['detail' => '/nieuwsbrief']))
         ->and($page->json('props.history.0.ip'))->toBe('192.0.2.1');
 
     $this->post(route('mailing.subscriptions.unsubscribe', $subscription))
@@ -208,7 +215,8 @@ test('a manual suppression unsubscribes the address everywhere and can be lifted
         'note' => 'Wil niets meer ontvangen',
     ])->assertRedirect(route('mailing.suppressions.index'));
 
-    $suppression = Suppression::query()->sole();
+    $suppression = Suppression::query()
+        ->sole();
 
     expect($suppression)
         ->email->toBe('lid@example.org')

@@ -67,10 +67,6 @@ return [
         'valid_days' => 7,
     ],
 
-    'unsubscribe' => [
-        'mailto' => env('MAILING_UNSUBSCRIBE_MAILTO'),
-    ],
-
     'import' => [
         'max_kilobytes' => 1024,
         'max_rows' => 5000,

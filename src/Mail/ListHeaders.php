@@ -16,19 +16,9 @@ class ListHeaders
     {
         $subscription->loadMissing('mailingList');
 
-        $targets = [
-            sprintf('<%s>', $this->unsubscribeUrl($subscription)),
-        ];
-
-        $mailto = config('mailing.unsubscribe.mailto');
-
-        if (is_string($mailto) && $mailto !== '') {
-            $targets[] = sprintf('<mailto:%s?subject=%s>', $mailto, rawurlencode(sprintf('unsubscribe %s', $subscription->unsubscribe_token)));
-        }
-
         return [
             'List-Id' => $this->listId($subscription->mailingList),
-            'List-Unsubscribe' => implode(', ', $targets),
+            'List-Unsubscribe' => sprintf('<%s>', $this->unsubscribeUrl($subscription)),
             'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
         ];
     }
@@ -42,7 +32,10 @@ class ListHeaders
 
     public function listId(MailingList $list): string
     {
-        $name = str_replace(['"', '\\'], '', $list->name);
+        $name = str_replace([
+            '"',
+            '\\',
+        ], '', $list->name);
 
         return sprintf('"%s" <%s.%s>', $name, $list->key, $this->domain());
     }

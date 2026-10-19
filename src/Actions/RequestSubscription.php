@@ -37,11 +37,6 @@ class RequestSubscription
 
             $name = trim((string) $name);
 
-            if ($name !== '' && (is_null($subscriber->name) || $subscriber->name === '')) {
-                $subscriber->name = $name;
-                $subscriber->save();
-            }
-
             $subscription = Subscription::query()
                 ->firstOrNew([
                     'subscriber_id' => $subscriber->id,
@@ -54,8 +49,11 @@ class RequestSubscription
 
             $subscription->fill([
                 'status' => SubscriptionStatus::Pending,
+                'consent_at' => null,
                 'consent_ip' => $ip,
                 'consent_source' => $source,
+                'requested_name' => $name === '' ? null : $name,
+                'confirmed_at' => null,
                 'unsubscribed_at' => null,
             ])->save();
 

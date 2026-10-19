@@ -19,6 +19,7 @@ return new class extends Migration
             $table->timestamp('consent_at')->nullable();
             $table->string('consent_ip', 45)->nullable();
             $table->string('consent_source')->nullable();
+            $table->string('requested_name', 120)->nullable();
             $table->timestamp('confirmation_sent_at')->nullable();
             $table->timestamp('confirmed_at')->nullable();
             $table->timestamp('unsubscribed_at')->nullable();

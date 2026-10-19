@@ -18,7 +18,8 @@ class ImportController extends Controller
 {
     public function index(): Response
     {
-        $hasLists = MailingList::query()->exists();
+        $hasLists = MailingList::query()
+            ->exists();
 
         return Inertia::render($this->page('imports_index'), [
             'imports' => ImportTable::build(),
@@ -30,7 +31,8 @@ class ImportController extends Controller
 
     public function create(): Response|RedirectResponse
     {
-        if (! MailingList::query()->exists()) {
+        if (! MailingList::query()
+            ->exists()) {
             return to_route('mailing.imports.index')->withErrors([
                 'import' => __('mailing::imports.errors.no_lists'),
             ]);
@@ -62,7 +64,8 @@ class ImportController extends Controller
             abort(422);
         }
 
-        $list = MailingList::query()->findOrFail((int) $validated['list_id']);
+        $list = MailingList::query()
+            ->findOrFail((int) $validated['list_id']);
 
         $import = $importSubscribers->handle(
             $list,

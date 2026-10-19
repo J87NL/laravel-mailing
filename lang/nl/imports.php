@@ -22,7 +22,7 @@ return [
         'created_at' => 'Moment',
     ],
     'help' => [
-        'file' => 'Kolommen email en name, gescheiden door komma of puntkomma. Een kopregel is optioneel.',
+        'file' => 'Kolommen email (of e-mailadres) en name (of naam), gescheiden door komma of puntkomma. Een kopregel is optioneel.',
         'consent_source' => 'Bijvoorbeeld "papieren intekenlijst rommelmarkt mei 2026".',
         'consent_note' => 'Alleen invullen als de toestemming aantoonbaar elders is vastgelegd. Dan worden de adressen direct aangemeld zonder bevestigingsmail.',
     ],
@@ -32,6 +32,7 @@ return [
     ],
     'errors' => [
         'invalid_email' => 'Regel :line: geen geldig e-mailadres.',
+        'too_many_rows' => 'Het bestand heeft meer dan :max regels; alleen de eerste :max zijn verwerkt.',
         'no_lists' => 'Maak eerst een mailinglijst aan.',
     ],
     'flash' => [

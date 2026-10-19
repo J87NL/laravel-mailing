@@ -16,14 +16,15 @@ pest()->extend(TestCase::class)->in('Feature');
  */
 function makeList(array $attributes = []): MailingList
 {
-    return MailingList::query()->create([
-        'key' => 'nieuws',
-        'name' => 'Nieuwsbrief',
-        'mailer' => 'array',
-        'sender_identity' => 'rommelmarkt',
-        'is_public' => true,
-        ...$attributes,
-    ]);
+    return MailingList::query()
+        ->create([
+            'key' => 'nieuws',
+            'name' => 'Nieuwsbrief',
+            'mailer' => 'array',
+            'sender_identity' => 'rommelmarkt',
+            'is_public' => true,
+            ...$attributes,
+        ]);
 }
 
 /**
@@ -46,14 +47,16 @@ function signupPayload(MailingList $list, array $overrides = []): array
 
 function makeSubscription(MailingList $list, string $email = 'lid@example.org', SubscriptionStatus $status = SubscriptionStatus::Subscribed): Subscription
 {
-    $subscriber = Subscriber::query()->firstOrCreate([
-        'email' => $email,
-    ]);
+    $subscriber = Subscriber::query()
+        ->firstOrCreate([
+            'email' => $email,
+        ]);
 
-    return Subscription::query()->create([
-        'subscriber_id' => $subscriber->id,
-        'list_id' => $list->id,
-        'status' => $status,
-        'confirmed_at' => $status === SubscriptionStatus::Subscribed ? now() : null,
-    ]);
+    return Subscription::query()
+        ->create([
+            'subscriber_id' => $subscriber->id,
+            'list_id' => $list->id,
+            'status' => $status,
+            'confirmed_at' => $status === SubscriptionStatus::Subscribed ? now() : null,
+        ]);
 }

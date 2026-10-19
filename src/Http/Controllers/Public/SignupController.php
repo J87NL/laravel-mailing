@@ -15,6 +15,7 @@ use J87NL\Mailing\Models\MailingList;
 use J87NL\Mailing\Signup\SignupForm;
 use J87NL\Mailing\Signup\SignupGuard;
 use J87NL\Mailing\Signup\SignupLimiter;
+use J87NL\Mailing\Support\ConsentSource;
 
 class SignupController extends Controller
 {
@@ -50,9 +51,21 @@ class SignupController extends Controller
             return redirect(SignupForm::successUrl($list, $returnTo), 303);
         }
 
-        $validator = Validator::make($request->only(['email', 'name']), [
-            'email' => ['required', 'string', 'email:rfc', 'max:254'],
-            'name' => ['nullable', 'string', 'max:120'],
+        $validator = Validator::make($request->only([
+            'email',
+            'name',
+        ]), [
+            'email' => [
+                'required',
+                'string',
+                'email:rfc',
+                'max:254',
+            ],
+            'name' => [
+                'nullable',
+                'string',
+                'max:120',
+            ],
         ], [], [
             'email' => __('mailing::signup.email'),
             'name' => __('mailing::signup.name'),
@@ -82,7 +95,7 @@ class SignupController extends Controller
             $email,
             is_string($name) ? $name : null,
             $request->ip(),
-            sprintf('signup: %s', $returnTo ?? route('mailing.subscribe.show', $list, false)),
+            ConsentSource::make(ConsentSource::SIGNUP, (string) parse_url($returnTo ?? route('mailing.subscribe.show', $list, false), PHP_URL_PATH)),
         );
 
         return redirect(SignupForm::successUrl($list, $returnTo), 303);

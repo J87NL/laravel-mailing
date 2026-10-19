@@ -48,6 +48,7 @@ class ListForm extends AbstractForm
                     'string',
                     'max:64',
                     'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
+                    'not_in:confirm,unsubscribe,webhooks',
                     Rule::unique('mailing_lists', 'key')->ignore($this->list?->id),
                 ]),
 

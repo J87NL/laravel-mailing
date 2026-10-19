@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use J87NL\Mailing\MailingPermission;
 use J87NL\Mailing\Models\Subscription;
+use J87NL\Mailing\Support\ConsentSource;
 use TranquilTools\TableBuilder\AbstractTable;
 use TranquilTools\TableBuilder\TableBuilder;
 
@@ -49,7 +50,7 @@ final class SubscriptionTable extends AbstractTable
         $table
             ->column('list', __('mailing::subscribers.fields.list'), as: fn (mixed $value, Subscription $subscription): string => $subscription->mailingList->name)
             ->column('status', __('mailing::subscribers.fields.status'), as: fn (mixed $value, Subscription $subscription): string => $subscription->status->label())
-            ->column('consent_source', __('mailing::subscribers.fields.consent_source'))
+            ->column('consent_source', __('mailing::subscribers.fields.consent_source'), as: fn (mixed $value, Subscription $subscription): string => ConsentSource::describe($subscription->consent_source))
             ->column('confirmed_at', __('mailing::subscribers.fields.confirmed_at'), as: fn (mixed $value, Subscription $subscription): string => $date($subscription->confirmed_at))
             ->column('unsubscribed_at', __('mailing::subscribers.fields.unsubscribed_at'), as: fn (mixed $value, Subscription $subscription): string => $date($subscription->unsubscribed_at));
 

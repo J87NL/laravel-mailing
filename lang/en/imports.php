@@ -22,7 +22,7 @@ return [
         'created_at' => 'When',
     ],
     'help' => [
-        'file' => 'Columns email and name, separated by comma or semicolon. A header row is optional.',
+        'file' => 'Columns email (or e-mailadres) and name (or naam), separated by comma or semicolon. A header row is optional.',
         'consent_source' => 'For example "paper sign-up sheet at the May 2026 market".',
         'consent_note' => 'Only fill this in when consent is documented elsewhere. The addresses are then subscribed without a confirmation mail.',
     ],
@@ -32,6 +32,7 @@ return [
     ],
     'errors' => [
         'invalid_email' => 'Line :line: not a valid email address.',
+        'too_many_rows' => 'The file has more than :max rows; only the first :max were processed.',
         'no_lists' => 'Create a mailing list first.',
     ],
     'flash' => [

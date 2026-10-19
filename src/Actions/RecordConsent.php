@@ -20,14 +20,15 @@ class RecordConsent
         ?string $note = null,
         ?int $actorId = null,
     ): ConsentRecord {
-        return ConsentRecord::query()->create([
-            'subscriber_id' => $subscriber->id,
-            'list_id' => $list?->id,
-            'action' => $action,
-            'source' => $source,
-            'ip' => $ip,
-            'note' => $note,
-            'actor_id' => $actorId,
-        ]);
+        return ConsentRecord::query()
+            ->create([
+                'subscriber_id' => $subscriber->id,
+                'list_id' => $list?->id,
+                'action' => $action,
+                'source' => $source,
+                'ip' => $ip,
+                'note' => $note,
+                'actor_id' => $actorId,
+            ]);
     }
 }

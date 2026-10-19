@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace J87NL\Mailing;
 
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use J87NL\Cms\Blocks\BlockRegistry;
 use J87NL\Mailing\Cms\SignupBlock;
@@ -31,6 +34,9 @@ class MailingServiceProvider extends ServiceProvider
         $this->loadTranslationsFrom(__DIR__.'/../lang', 'mailing');
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'mailing');
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+
+        RateLimiter::for('mailing-unsubscribe', fn (Request $request): Limit => Limit::perMinute(10)
+            ->by(sprintf('mailing-unsubscribe:%s', sha1((string) $request->route('token')))));
 
         $this->loadRoutesFrom(__DIR__.'/../routes/public.php');
         $this->loadRoutesFrom(__DIR__.'/../routes/admin.php');

@@ -24,7 +24,6 @@ class PruneMailingData extends Command
         $unconfirmed = $this->prune(
             Subscription::query()
                 ->where('status', SubscriptionStatus::Pending)
-                ->whereNull('confirmed_at')
                 ->where('updated_at', '<', now()->subDays((int) config('mailing.retention.unconfirmed_days', 30))),
         );
 

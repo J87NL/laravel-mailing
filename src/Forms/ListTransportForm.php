@@ -15,6 +15,13 @@ use TranquilTools\FormBuilder\FormConfig;
 
 class ListTransportForm extends AbstractForm
 {
+    private const array INTERNAL_MAILERS = [
+        'array',
+        'log',
+        'failover',
+        'roundrobin',
+    ];
+
     public function configure(FormConfig $form): void
     {
         $form->class('space-y-6');
@@ -91,7 +98,7 @@ class ListTransportForm extends AbstractForm
         $options = [];
 
         foreach (array_keys($mailers) as $name) {
-            if (! is_string($name) || in_array($name, ['array', 'log', 'failover', 'roundrobin'], true)) {
+            if (! is_string($name) || in_array($name, self::INTERNAL_MAILERS, true)) {
                 continue;
             }
 

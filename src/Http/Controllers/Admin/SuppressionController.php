@@ -12,6 +12,7 @@ use J87NL\Mailing\Actions\SuppressAddress;
 use J87NL\Mailing\Enums\SuppressionReason;
 use J87NL\Mailing\Forms\SuppressionForm;
 use J87NL\Mailing\Models\Suppression;
+use J87NL\Mailing\Support\ConsentSource;
 use J87NL\Mailing\Tables\SuppressionTable;
 
 class SuppressionController extends Controller
@@ -52,7 +53,7 @@ class SuppressionController extends Controller
         $suppressAddress->handle(
             (string) $validated['email'],
             SuppressionReason::Manual,
-            'admin',
+            ConsentSource::ADMIN,
             $note === '' ? null : $note,
             $this->userId($request),
         );

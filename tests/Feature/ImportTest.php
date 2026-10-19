@@ -33,15 +33,17 @@ test('an import needs a consent source', function (): void {
         'file' => csvUpload("email\njan@example.org\n"),
     ])->assertSessionHasErrors('consent_source');
 
-    expect(Subscription::query()->count())->toBe(0);
+    expect(Subscription::query()
+        ->count())->toBe(0);
 });
 
 test('imported addresses start pending and get one confirmation mail', function (): void {
     makeSubscription($this->list, 'al@example.org');
-    Suppression::query()->create([
-        'email' => 'weg@example.org',
-        'reason' => SuppressionReason::HardBounce,
-    ]);
+    Suppression::query()
+        ->create([
+            'email' => 'weg@example.org',
+            'reason' => SuppressionReason::HardBounce,
+        ]);
 
     $this->post(route('mailing.imports.store'), [
         'list_id' => (string) $this->list->id,
@@ -63,7 +65,8 @@ test('imported addresses start pending and get one confirmation mail', function 
 
     Mail::assertQueued(ConfirmSubscriptionMail::class, 2);
 
-    $import = MailingImport::query()->sole();
+    $import = MailingImport::query()
+        ->sole();
 
     expect($import)
         ->imported->toBe(2)
@@ -83,13 +86,54 @@ test('addresses with documented earlier consent are subscribed without a confirm
         'consent_note' => 'Aanmeldformulieren 2024 in de map bij de penningmeester',
     ])->assertRedirect(route('mailing.imports.index'))->assertSessionHasNoErrors();
 
-    expect(Subscription::query()->where('status', SubscriptionStatus::Subscribed)->count())->toBe(2);
+    expect(Subscription::query()
+        ->where('status', SubscriptionStatus::Subscribed)->count())->toBe(2);
 
     Mail::assertNothingQueued();
 
-    $record = ConsentRecord::query()->first();
+    $record = ConsentRecord::query()
+        ->first();
 
     expect($record?->action)->toBe(ConsentAction::Imported)
         ->and($record?->note)->toBe('Aanmeldformulieren 2024 in de map bij de penningmeester')
         ->and($record?->actor_id)->toBe(1);
+});
+
+test('an import never re-subscribes an address that unsubscribed, even with documented consent', function (): void {
+    $unsubscribed = makeSubscription($this->list, 'weg@example.org', SubscriptionStatus::Unsubscribed);
+
+    $this->post(route('mailing.imports.store'), [
+        'list_id' => (string) $this->list->id,
+        'file' => csvUpload("weg@example.org,Weg\n"),
+        'consent_source' => 'Oude ledenlijst',
+        'consent_note' => 'Map bij de penningmeester',
+    ])->assertSessionHasNoErrors();
+
+    expect($unsubscribed->fresh()->status)->toBe(SubscriptionStatus::Unsubscribed)
+        ->and(MailingImport::query()
+            ->sole()->skipped)->toBe(1);
+
+    Mail::assertNothingQueued();
+});
+
+test('an import reads Dutch headers behind a byte order mark and reports rows over the limit', function (): void {
+    config()->set('mailing.import.max_rows', 2);
+
+    $this->post(route('mailing.imports.store'), [
+        'list_id' => (string) $this->list->id,
+        'file' => csvUpload("\u{FEFF}Naam;E-mailadres\nJan;jan@example.org\nPiet;piet@example.org\nKees;kees@example.org\n"),
+        'consent_source' => 'Intekenlijst markt mei',
+    ])->assertSessionHasErrors([
+        'import' => __('mailing::imports.errors.too_many_rows', ['max' => 2]),
+    ]);
+
+    $subscriptions = Subscription::query()
+        ->with('subscriber')
+        ->get();
+
+    expect($subscriptions->pluck('subscriber.email')->sort()->values()->all())->toBe([
+        'jan@example.org',
+        'piet@example.org',
+    ])
+        ->and($subscriptions->firstWhere('subscriber.email', 'jan@example.org')?->subscriber->name)->toBe('Jan');
 });

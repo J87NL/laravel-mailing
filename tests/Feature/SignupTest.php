@@ -50,10 +50,12 @@ test('a sign-up is confirmed through the signed link in the confirmation mail', 
 
     expect($response->headers->getCookies())->toBeEmpty();
 
-    $subscription = Subscription::query()->sole();
+    $subscription = Subscription::query()
+        ->sole();
 
     expect($subscription->status)->toBe(SubscriptionStatus::Pending)
-        ->and($subscription->subscriber->name)->toBe('Bezoeker');
+        ->and($subscription->subscriber->name)->toBeNull()
+        ->and($subscription->requested_name)->toBe('Bezoeker');
 
     Mail::assertQueued(ConfirmSubscriptionMail::class, fn (ConfirmSubscriptionMail $mail): bool => $mail->hasTo('bezoeker@example.org')
         && $mail->hasFrom('info@rommelmarkt.test', 'Rommelmarkt'));
@@ -74,10 +76,12 @@ test('a sign-up is confirmed through the signed link in the confirmation mail', 
     expect($confirmed->headers->getCookies())->toBeEmpty()
         ->and($subscription->fresh()->status)->toBe(SubscriptionStatus::Subscribed)
         ->and($subscription->fresh()->confirmed_at)->not->toBeNull()
-        ->and(ConsentRecord::query()->orderBy('id')->pluck('action')->all())->toBe([
-            ConsentAction::Requested,
-            ConsentAction::Confirmed,
-        ]);
+        ->and($subscription->fresh()->subscriber->name)->toBe('Bezoeker')
+        ->and(ConsentRecord::query()
+            ->orderBy('id')->pluck('action')->all())->toBe([
+                ConsentAction::Requested,
+                ConsentAction::Confirmed,
+            ]);
 });
 
 test('the confirmation link expires after seven days', function (): void {
@@ -91,7 +95,8 @@ test('the confirmation link expires after seven days', function (): void {
         ->assertForbidden()
         ->assertSee(__('mailing::confirm.expired.title'));
 
-    expect(Subscription::query()->sole()->status)->toBe(SubscriptionStatus::Pending);
+    expect(Subscription::query()
+        ->sole()->status)->toBe(SubscriptionStatus::Pending);
 });
 
 test('a tampered confirmation link is refused', function (): void {
@@ -99,7 +104,8 @@ test('a tampered confirmation link is refused', function (): void {
 
     $this->post(str_replace('signature=', 'signature=0', confirmationUrl()))->assertForbidden();
 
-    expect(Subscription::query()->sole()->status)->toBe(SubscriptionStatus::Pending);
+    expect(Subscription::query()
+        ->sole()->status)->toBe(SubscriptionStatus::Pending);
 });
 
 test('the response is identical for new, pending and existing addresses', function (): void {
@@ -121,10 +127,11 @@ test('the response is identical for new, pending and existing addresses', functi
 });
 
 test('a suppressed address gets the same response but no mail', function (): void {
-    Suppression::query()->create([
-        'email' => 'weg@example.org',
-        'reason' => SuppressionReason::UnsubscribeAll,
-    ]);
+    Suppression::query()
+        ->create([
+            'email' => 'weg@example.org',
+            'reason' => SuppressionReason::UnsubscribeAll,
+        ]);
 
     $this->post('/mailing/nieuws/subscribe', signupPayload($this->list, [
         'email' => 'weg@example.org',
@@ -132,7 +139,8 @@ test('a suppressed address gets the same response but no mail', function (): voi
 
     Mail::assertNothingQueued();
 
-    expect(Subscriber::query()->count())->toBe(0);
+    expect(Subscriber::query()
+        ->count())->toBe(0);
 });
 
 test('bots filling the honeypot or posting too fast get the success response without a sign-up', function (): void {
@@ -151,7 +159,8 @@ test('bots filling the honeypot or posting too fast get the success response wit
 
     Mail::assertNothingQueued();
 
-    expect(Subscriber::query()->count())->toBe(0);
+    expect(Subscriber::query()
+        ->count())->toBe(0);
 });
 
 test('invalid input shows the errors without storing anything', function (): void {
@@ -162,7 +171,8 @@ test('invalid input shows the errors without storing anything', function (): voi
         ->assertSee(__('mailing::signup.has_errors'))
         ->assertSee('value="geen-adres"', false);
 
-    expect(Subscriber::query()->count())->toBe(0);
+    expect(Subscriber::query()
+        ->count())->toBe(0);
 });
 
 test('sign-ups are rate limited per address and per IP address', function (): void {
@@ -185,7 +195,8 @@ test('sign-ups are rate limited per address and per IP address', function (): vo
         ->assertStatus(429)
         ->assertHeader('Retry-After');
 
-    expect(Subscriber::query()->where('email', 'derde@example.org')->exists())->toBeFalse();
+    expect(Subscriber::query()
+        ->where('email', 'derde@example.org')->exists())->toBeFalse();
 });
 
 test('a list that is not public has no sign-up page', function (): void {
@@ -216,7 +227,38 @@ test('an unsubscribed address can sign up again and confirm', function (): void 
         'email' => 'terug@example.org',
     ]));
 
+    $pending = Subscription::query()
+        ->sole();
+
+    expect($pending->status)->toBe(SubscriptionStatus::Pending)
+        ->and($pending->confirmed_at)->toBeNull()
+        ->and($pending->consent_at)->toBeNull();
+
     $this->post(confirmationUrl())->assertOk();
 
-    expect(Subscription::query()->sole()->status)->toBe(SubscriptionStatus::Subscribed);
+    expect(Subscription::query()
+        ->sole()->status)->toBe(SubscriptionStatus::Subscribed);
+});
+
+test('an unconfirmed sign-up cannot change the name of a known address', function (): void {
+    $subscriber = makeSubscription($this->list, 'lid@example.org', SubscriptionStatus::Unsubscribed)->subscriber;
+
+    $this->post('/mailing/nieuws/subscribe', signupPayload($this->list, [
+        'email' => 'lid@example.org',
+        'name' => 'Iemand anders',
+    ]));
+
+    expect($subscriber->fresh()->name)->toBeNull();
+});
+
+test('the consent source names the page, limited in length', function (): void {
+    $this->post('/mailing/nieuws/subscribe', signupPayload($this->list, [
+        'return_to' => sprintf('/%s', str_repeat('a', 2000)),
+    ]));
+
+    $source = (string) Subscription::query()
+        ->sole()->consent_source;
+
+    expect($source)->toStartWith('signup: /aaa')
+        ->and(mb_strlen($source))->toBeLessThanOrEqual(220);
 });

@@ -19,6 +19,7 @@ use J87NL\Mailing\Enums\SubscriptionStatus;
  * @property Carbon|null $consent_at
  * @property string|null $consent_ip
  * @property string|null $consent_source
+ * @property string|null $requested_name
  * @property Carbon|null $confirmation_sent_at
  * @property Carbon|null $confirmed_at
  * @property Carbon|null $unsubscribed_at
@@ -41,6 +42,7 @@ class Subscription extends Model
         'consent_at',
         'consent_ip',
         'consent_source',
+        'requested_name',
         'confirmation_sent_at',
         'confirmed_at',
         'unsubscribed_at',

@@ -38,8 +38,10 @@ test('a one-click POST as sent by mail clients unsubscribes immediately without 
     expect($response->headers->getCookies())->toBeEmpty()
         ->and($this->subscription->fresh()->status)->toBe(SubscriptionStatus::Unsubscribed)
         ->and($this->subscription->fresh()->unsubscribed_at)->not->toBeNull()
-        ->and(ConsentRecord::query()->sole()->action)->toBe(ConsentAction::Unsubscribed)
-        ->and(Suppression::query()->count())->toBe(0);
+        ->and(ConsentRecord::query()
+            ->sole()->action)->toBe(ConsentAction::Unsubscribed)
+        ->and(Suppression::query()
+            ->count())->toBe(0);
 });
 
 test('unsubscribing from all lists adds a suppression that blocks a new sign-up', function (): void {
@@ -59,13 +61,30 @@ test('unsubscribing from all lists adds a suppression that blocks a new sign-up'
 
     expect($this->subscription->fresh()->status)->toBe(SubscriptionStatus::Unsubscribed)
         ->and($otherSubscription->fresh()->status)->toBe(SubscriptionStatus::Unsubscribed)
-        ->and(Suppression::query()->sole()->reason)->toBe(SuppressionReason::UnsubscribeAll);
+        ->and(Suppression::query()
+            ->sole()->reason)->toBe(SuppressionReason::UnsubscribeAll);
 
     $this->post('/mailing/nieuws/subscribe', signupPayload($this->list, [
         'email' => 'lid@example.org',
     ]))->assertRedirect();
 
     Mail::assertNotQueued(ConfirmSubscriptionMail::class);
+});
+
+test('one-click unsubscribes are limited per link, not per sending server', function (): void {
+    foreach (range(1, 40) as $number) {
+        $subscription = makeSubscription($this->list, sprintf('lid%d@example.org', $number));
+
+        $this->call('POST', sprintf('/mailing/unsubscribe/%s', $subscription->unsubscribe_token), [
+            'List-Unsubscribe' => 'One-Click',
+        ])->assertOk();
+    }
+
+    foreach (range(1, 10) as $attempt) {
+        $this->get(sprintf('/mailing/unsubscribe/%s', $this->subscription->unsubscribe_token))->assertOk();
+    }
+
+    $this->get(sprintf('/mailing/unsubscribe/%s', $this->subscription->unsubscribe_token))->assertTooManyRequests();
 });
 
 test('an unknown unsubscribe token is not found', function (): void {
@@ -76,8 +95,6 @@ test('an unknown unsubscribe token is not found', function (): void {
 });
 
 test('list mails carry the List-Unsubscribe, List-Unsubscribe-Post and List-Id headers', function (): void {
-    config()->set('mailing.unsubscribe.mailto', 'afmelden@rommelmarkt.test');
-
     $mail = new class($this->subscription) extends ListMailable
     {
         public function envelope(): Envelope
@@ -100,7 +117,7 @@ test('list mails carry the List-Unsubscribe, List-Unsubscribe-Post and List-Id h
         'token' => $this->subscription->unsubscribe_token,
     ]);
 
-    expect($headers?->get('List-Unsubscribe')?->getBodyAsString())->toBe(sprintf('<%s>, <mailto:afmelden@rommelmarkt.test?subject=unsubscribe%%20%s>', $url, $this->subscription->unsubscribe_token))
+    expect($headers?->get('List-Unsubscribe')?->getBodyAsString())->toBe(sprintf('<%s>', $url))
         ->and($headers?->get('List-Unsubscribe-Post')?->getBodyAsString())->toBe('List-Unsubscribe=One-Click')
         ->and($headers?->get('List-Id')?->getBodyAsString())->toBe('"Nieuwsbrief" <nieuws.rommelmarkt.test>');
 });

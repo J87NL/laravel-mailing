@@ -13,6 +13,7 @@ use J87NL\Mailing\Models\ConsentRecord;
 use J87NL\Mailing\Models\Subscriber;
 use J87NL\Mailing\Models\Subscription;
 use J87NL\Mailing\Models\Suppression;
+use J87NL\Mailing\Support\ConsentSource;
 use J87NL\Mailing\Tables\SubscriberTable;
 use J87NL\Mailing\Tables\SubscriptionTable;
 
@@ -52,7 +53,7 @@ class SubscriberController extends Controller
                     'id' => $record->id,
                     'action' => $record->action->label(),
                     'list' => $record->mailingList?->name,
-                    'source' => $record->source,
+                    'source' => ConsentSource::describe($record->source),
                     'ip' => $record->ip,
                     'note' => $record->note,
                     'at' => $record->created_at?->isoFormat('D MMM YYYY HH:mm'),
@@ -71,7 +72,7 @@ class SubscriberController extends Controller
 
     public function unsubscribe(Request $request, Subscription $subscription, Unsubscribe $unsubscribe): RedirectResponse
     {
-        $unsubscribe->handle($subscription, 'admin', null, $this->userId($request));
+        $unsubscribe->handle($subscription, ConsentSource::ADMIN, null, $this->userId($request));
 
         $this->toast(__('mailing::subscribers.flash.unsubscribed'));
 

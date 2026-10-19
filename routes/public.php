@@ -23,10 +23,10 @@ Route::middleware([
             ->name('confirm.store');
 
         Route::get('unsubscribe/{token}', [UnsubscribeController::class, 'show'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:mailing-unsubscribe')
             ->name('unsubscribe.show');
         Route::post('unsubscribe/{token}', [UnsubscribeController::class, 'store'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:mailing-unsubscribe')
             ->name('unsubscribe.store');
 
         Route::get('{list:key}/subscribe', [SignupController::class, 'show'])

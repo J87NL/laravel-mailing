@@ -22,20 +22,20 @@ Point `mailing.layout` at your public Blade layout (it yields `title`, `head` an
 
 ## What it does
 
-- **Sign-up:** a standalone page `/mailing/{list}/subscribe` and, when the CMS is installed, a `mailing_signup` block. Both are protected by a honeypot, a signed timestamp and rate limits per IP address, per address and overall, instead of CSRF and a session. The response is identical whether the address is new, pending, subscribed or suppressed.
+- **Sign-up:** a standalone page `/mailing/{list}/subscribe` and, when the CMS is installed, a `mailing_signup` block. Both are protected by a honeypot, a signed timestamp and rate limits per IP address, per address and overall, instead of CSRF and a session. The response is identical whether the address is new, pending, subscribed or suppressed. Only the response time can differ slightly, because a new or pending address queues a confirmation mail; that is an accepted trade-off.
 - **Double opt-in:** a confirmation mail with a signed link valid for 7 days. The link opens a page with a button; only the POST confirms, so link scanners cannot confirm on someone's behalf.
 - **Unsubscribe:** every subscription has its own token. A POST to the unsubscribe URL unsubscribes at once (RFC 8058 one-click); a GET only shows a page with "this list" and "all lists". "All lists" adds a suppression.
-- **List headers:** mailables extending `ListMailable` carry `List-Unsubscribe` (HTTPS and, when configured, `mailto:`), `List-Unsubscribe-Post` and `List-Id`.
+- **List headers:** mailables extending `ListMailable` carry `List-Unsubscribe` (HTTPS), `List-Unsubscribe-Post` and `List-Id`.
 - **Consent records:** every request, confirmation, import, unsubscribe and suppression is recorded with source, IP address, note and the acting admin.
 - **Admin:** lists, the transport per list, subscribers with their history and a CSV export, manual unsubscribe, suppressions and imports.
 - **Retention:** `mailing:prune` runs daily and deletes unconfirmed sign-ups after 30 days and the consent records of unsubscribed addresses after 2 years. Suppressions stay.
 
 ## Contracts
 
-| Contract | Default | Purpose |
-| --- | --- | --- |
+| Contract                 | Default                                            | Purpose                            |
+| ------------------------ | -------------------------------------------------- | ---------------------------------- |
 | `SenderIdentityProvider` | `ConfigSenderIdentityProvider` (`mailing.senders`) | The From identities a list can use |
-| `MailboxReader` | `NullMailboxReader` | Read access to the bounce mailbox |
+| `MailboxReader`          | `NullMailboxReader`                                | Read access to the bounce mailbox  |
 
 Bind your own implementation through `mailing.sender_identity_provider` and `mailing.mailbox_reader`.
 
