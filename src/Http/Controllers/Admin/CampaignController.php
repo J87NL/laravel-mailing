@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -24,8 +25,10 @@ use J87NL\Mailing\Mail\CampaignMail;
 use J87NL\Mailing\MailingPermission;
 use J87NL\Mailing\Models\Campaign;
 use J87NL\Mailing\Models\MailingList;
+use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Preflight\PreflightCheck;
 use J87NL\Mailing\Preflight\PreflightItem;
+use J87NL\Mailing\Support\MailingTime;
 use J87NL\Mailing\Tables\CampaignTable;
 use J87NL\Mailing\Tables\SendTable;
 use TranquilTools\FormBuilder\FormConfig;
@@ -34,12 +37,32 @@ class CampaignController extends Controller
 {
     private const int MAX_TEST_RECIPIENTS = 5;
 
+    private const int TEST_SENDS_PER_HOUR = 10;
+
+    private const array UNSTARTED = [
+        CampaignStatus::Draft,
+        CampaignStatus::Scheduled,
+    ];
+
+    private const array RETRYABLE = [
+        CampaignStatus::Sending,
+        CampaignStatus::Paused,
+        CampaignStatus::Sent,
+    ];
+
+    private const array CANCELLABLE = [
+        CampaignStatus::Scheduled,
+        CampaignStatus::Sending,
+        CampaignStatus::Paused,
+    ];
+
     public function index(): Response
     {
         return Inertia::render($this->page('campaigns_index'), [
             'campaigns' => CampaignTable::build(),
             'createUrl' => route('mailing.campaigns.create'),
-            'createDisabledReason' => MailingList::query()->exists() ? null : __('mailing::campaigns.errors.no_lists'),
+            'createDisabledReason' => MailingList::query()
+                ->exists() ? null : __('mailing::campaigns.errors.no_lists'),
             'breadcrumbs' => $this->breadcrumbs(),
         ]);
     }
@@ -53,7 +76,9 @@ class CampaignController extends Controller
 
     public function store(Request $request, SaveCampaign $saveCampaign): RedirectResponse
     {
-        $campaign = $saveCampaign->handle(new Campaign, CampaignForm::make()->validate($request), $this->userId($request));
+        $campaign = new Campaign;
+
+        $saveCampaign->handle($campaign, CampaignForm::make()->validate($request), $this->userId($request));
 
         $this->toast(__('mailing::campaigns.flash.saved'));
 
@@ -84,7 +109,9 @@ class CampaignController extends Controller
             return $this->locked($campaign);
         }
 
-        $saveCampaign->handle($campaign, CampaignForm::make()->validate($request), $this->userId($request));
+        if (! $saveCampaign->handle($campaign, CampaignForm::make()->validate($request), $this->userId($request))) {
+            return $this->locked($campaign->refresh());
+        }
 
         $this->toast(__('mailing::campaigns.flash.saved'));
 
@@ -111,7 +138,7 @@ class CampaignController extends Controller
         $user = $request->user();
         $canEdit = (bool) $user?->can(MailingPermission::CampaignsEdit->value);
         $canSend = (bool) $user?->can(MailingPermission::CampaignsSend->value);
-        $items = $campaign->isEditable() ? $preflight->run($campaign) : [];
+        $items = $campaign->isEditable() ? $preflight->cached($campaign) : [];
         $recipients = $this->recipientCount($campaign);
         $counts = $this->counts($campaign);
         $driver = $drivers->for($campaign->mailingList);
@@ -129,10 +156,10 @@ class CampaignController extends Controller
                 'list' => $campaign->mailingList->name,
                 'status' => $campaign->status->value,
                 'statusLabel' => $campaign->status->label(),
-                'scheduledAt' => $campaign->scheduled_at?->isoFormat('D MMMM YYYY HH:mm'),
-                'startedAt' => $campaign->started_at?->isoFormat('D MMMM YYYY HH:mm'),
-                'finishedAt' => $campaign->finished_at?->isoFormat('D MMMM YYYY HH:mm'),
-                'recipients' => $campaign->status === CampaignStatus::Draft || $campaign->status === CampaignStatus::Scheduled ? $recipients : array_sum($counts),
+                'scheduledAt' => MailingTime::format($campaign->scheduled_at, 'D MMMM YYYY HH:mm'),
+                'startedAt' => MailingTime::format($campaign->started_at, 'D MMMM YYYY HH:mm'),
+                'finishedAt' => MailingTime::format($campaign->finished_at, 'D MMMM YYYY HH:mm'),
+                'recipients' => in_array($campaign->status, self::UNSTARTED, true) ? $recipients : array_sum($counts),
                 'estimatedFinish' => $this->estimatedFinish($campaign, $counts),
                 'transport' => $driver->reportsDelivery() ? __('mailing::campaigns.transport.provider') : __('mailing::campaigns.transport.postfix'),
             ],
@@ -153,7 +180,7 @@ class CampaignController extends Controller
             'testForm' => $canSend && $campaign->isEditable() ? TestSendForm::make()
                 ->action(route('mailing.campaigns.test', $campaign))
                 ->method('POST') : null,
-            'sends' => in_array($campaign->status, [CampaignStatus::Draft, CampaignStatus::Scheduled], true) ? null : SendTable::build($campaign->id),
+            'sends' => in_array($campaign->status, self::UNSTARTED, true) ? null : SendTable::build($campaign->id),
             'breadcrumbs' => [
                 ...$this->breadcrumbs(),
                 [
@@ -224,8 +251,14 @@ class CampaignController extends Controller
         $validator = Validator::make([
             'recipients' => $recipients,
         ], [
-            'recipients' => ['required', 'array', sprintf('max:%d', self::MAX_TEST_RECIPIENTS)],
-            'recipients.*' => ['email:rfc'],
+            'recipients' => [
+                'required',
+                'array',
+                sprintf('max:%d', self::MAX_TEST_RECIPIENTS),
+            ],
+            'recipients.*' => [
+                'email:rfc',
+            ],
         ]);
 
         if ($validator->fails()) {
@@ -236,10 +269,32 @@ class CampaignController extends Controller
             ]);
         }
 
+        $recipients = array_values(array_filter($recipients, fn (string $recipient): bool => ! Suppression::covers($recipient)));
+
+        if ($recipients === []) {
+            return to_route('mailing.campaigns.show', $campaign)->withErrors([
+                'recipients' => __('mailing::campaigns.errors.test_suppressed'),
+            ]);
+        }
+
+        $limiterKey = sprintf('mailing-test-send:%d', $this->userId($request) ?? 0);
+
+        if (RateLimiter::remaining($limiterKey, self::TEST_SENDS_PER_HOUR) < count($recipients)) {
+            return to_route('mailing.campaigns.show', $campaign)->withErrors([
+                'recipients' => __('mailing::campaigns.errors.test_limit', [
+                    'max' => self::TEST_SENDS_PER_HOUR,
+                ]),
+            ]);
+        }
+
         $campaign->loadMissing('mailingList');
 
         foreach ($recipients as $recipient) {
-            Mail::mailer($campaign->mailingList->mailer)->to($recipient)->send(new CampaignMail($campaign));
+            RateLimiter::hit($limiterKey, 3600);
+
+            Mail::mailer($campaign->mailingList->mailer)
+                ->to($recipient)
+                ->send(new CampaignMail($campaign));
         }
 
         $this->toast(__('mailing::campaigns.flash.test_sent', [
@@ -274,11 +329,11 @@ class CampaignController extends Controller
             $actions[] = $this->action(__('mailing::campaigns.actions.resume'), route('mailing.campaigns.resume', $campaign), 'post', null, $needsSend);
         }
 
-        if (in_array($campaign->status, [CampaignStatus::Sending, CampaignStatus::Paused, CampaignStatus::Sent], true) && $campaign->sends()->where('status', SendStatus::Failed)->exists()) {
+        if (in_array($campaign->status, self::RETRYABLE, true) && $this->hasRetryableSends($campaign)) {
             $actions[] = $this->action(__('mailing::campaigns.actions.retry'), route('mailing.campaigns.retry', $campaign), 'post', __('mailing::campaigns.actions.retry_confirm'), $needsSend);
         }
 
-        if (in_array($campaign->status, [CampaignStatus::Scheduled, CampaignStatus::Sending, CampaignStatus::Paused], true)) {
+        if (in_array($campaign->status, self::CANCELLABLE, true)) {
             $actions[] = $this->action(__('mailing::campaigns.actions.cancel'), route('mailing.campaigns.cancel', $campaign), 'post', __('mailing::campaigns.actions.cancel_confirm'), $needsSend, 'destructive');
         }
 
@@ -302,6 +357,14 @@ class CampaignController extends Controller
             'disabledReason' => $disabledReason,
             'variant' => $variant,
         ];
+    }
+
+    private function hasRetryableSends(Campaign $campaign): bool
+    {
+        return $campaign->sends()
+            ->where('status', SendStatus::Failed)
+            ->whereNull('handed_over_at')
+            ->exists();
     }
 
     /**
@@ -335,7 +398,7 @@ class CampaignController extends Controller
             $minutes += (int) floor($remaining / $cap) * 24 * 60;
         }
 
-        return CarbonImmutable::now()->addMinutes($minutes)->isoFormat('D MMMM YYYY HH:mm');
+        return MailingTime::format(CarbonImmutable::now()->addMinutes($minutes), 'D MMMM YYYY HH:mm');
     }
 
     private function recipientCount(Campaign $campaign): int

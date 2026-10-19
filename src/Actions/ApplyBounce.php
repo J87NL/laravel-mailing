@@ -18,13 +18,14 @@ class ApplyBounce
 
     public function handle(string $email, ?Send $send, BounceType $type, string $source, ?string $diagnostic): void
     {
-        BounceEvent::query()->create([
-            'email' => $email,
-            'send_id' => $send?->id,
-            'type' => $type,
-            'source' => $source,
-            'diagnostic' => $diagnostic,
-        ]);
+        BounceEvent::query()
+            ->create([
+                'email' => $email,
+                'send_id' => $send?->id,
+                'type' => $type,
+                'source' => $source,
+                'diagnostic' => $diagnostic,
+            ]);
 
         if (! is_null($send)) {
             $send->forceFill([

@@ -23,7 +23,8 @@ beforeEach(function (): void {
     app(StartCampaign::class)->handle(makeCampaign($list));
     runDispatcher();
 
-    $this->send = Send::query()->sole();
+    $this->send = Send::query()
+        ->sole();
 });
 
 function lettermintPayload(string $event, Send $send): string
@@ -85,7 +86,8 @@ test('webhooks that fail the signature check are refused', function (string $cas
     postLettermint($body, $headers)->assertUnauthorized();
 
     expect($this->send->fresh()->status)->toBe(SendStatus::HandedOver)
-        ->and(Suppression::query()->count())->toBe(0);
+        ->and(Suppression::query()
+            ->count())->toBe(0);
 })->with([
     'missing',
     'wrong secret',
@@ -109,8 +111,10 @@ test('each recorded Lettermint event maps to the right status', function (string
     ]);
 
     expect($this->send->fresh()->status)->toBe($status)
-        ->and(Suppression::query()->first()?->reason)->toBe($suppression)
-        ->and(BounceEvent::query()->first()?->type)->toBe($bounce)
+        ->and(Suppression::query()
+            ->first()?->reason)->toBe($suppression)
+        ->and(BounceEvent::query()
+            ->first()?->type)->toBe($bounce)
         ->and($this->subscription->fresh()->status)->toBe($subscription);
 })->with([
     'delivered' => ['message.delivered', SendStatus::Delivered, null, null, SubscriptionStatus::Subscribed],
@@ -127,5 +131,6 @@ test('a repeated webhook delivery is applied once', function (): void {
     postLettermint($body, lettermintHeaders($body))->assertJson(['applied' => 1]);
     postLettermint($body, lettermintHeaders($body))->assertJson(['applied' => 0]);
 
-    expect(BounceEvent::query()->count())->toBe(1);
+    expect(BounceEvent::query()
+        ->count())->toBe(1);
 });

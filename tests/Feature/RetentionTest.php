@@ -167,5 +167,6 @@ test('send records are deleted after 13 months', function (): void {
 
     $this->artisan('mailing:prune')->assertSuccessful();
 
-    expect(Send::query()->count())->toBe(1);
+    expect(Send::query()
+        ->count())->toBe(1);
 });

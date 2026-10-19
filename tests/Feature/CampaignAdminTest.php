@@ -2,12 +2,17 @@
 
 declare(strict_types=1);
 
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
 use J87NL\Mailing\Contracts\DnsResolver;
 use J87NL\Mailing\Contracts\SpamScorer;
 use J87NL\Mailing\Enums\CampaignStatus;
+use J87NL\Mailing\Enums\SuppressionReason;
+use J87NL\Mailing\Forms\ScheduleForm;
+use J87NL\Mailing\Html\HtmlToText;
 use J87NL\Mailing\MailingPermission;
 use J87NL\Mailing\Models\Campaign;
+use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Preflight\PreflightCheck;
 use J87NL\Mailing\Preflight\PreflightItem;
 use J87NL\Mailing\Tests\Fakes\FakeDnsResolver;
@@ -23,6 +28,11 @@ function healthyDns(): FakeDnsResolver
         'rommelmarkt.test' => ['v=spf1 mx ip4:192.0.2.10 -all'],
         'mail._domainkey.rommelmarkt.test' => ['v=DKIM1; k=rsa; p=MIIBIjANBg'],
         '_dmarc.rommelmarkt.test' => ['v=DMARC1; p=none; rua=mailto:dmarc@j87.nl'],
+    ];
+    $dns->a = [
+        'rommelmarkt.test' => [
+            '93.184.215.14',
+        ],
     ];
 
     return $dns;
@@ -63,7 +73,8 @@ test('the composer sanitizes the body and generates the plain-text part', functi
         'body_text' => '',
     ])->assertRedirect();
 
-    $campaign = Campaign::query()->sole();
+    $campaign = Campaign::query()
+        ->sole();
 
     expect($campaign->status)->toBe(CampaignStatus::Draft)
         ->and($campaign->body_html)->not->toContain('script')
@@ -179,10 +190,10 @@ test('a test mail goes only to the entered addresses and creates no sends', func
     ])->assertSessionHasErrors('recipients');
 });
 
-test('a campaign that is sending can no longer be edited', function (): void {
+test('a campaign that is scheduled or sending can no longer be edited', function (CampaignStatus $status): void {
     $campaign = makeCampaign($this->list);
     $campaign->forceFill([
-        'status' => CampaignStatus::Sending,
+        'status' => $status,
     ])->save();
 
     $this->actingWithPermissions([MailingPermission::CampaignsEdit->value]);
@@ -194,4 +205,103 @@ test('a campaign that is sending can no longer be edited', function (): void {
     ])->assertSessionHasErrors('campaign');
 
     expect($campaign->fresh()->subject)->toBe('Nieuws van de rommelmarkt');
+})->with([
+    'scheduled' => [CampaignStatus::Scheduled],
+    'sending' => [CampaignStatus::Sending],
+]);
+
+test('an edited body regenerates a generated plain-text part but keeps a hand-written one', function (): void {
+    $campaign = makeCampaign($this->list);
+
+    $this->actingWithPermissions([MailingPermission::CampaignsEdit->value]);
+
+    $generated = app(HtmlToText::class)->convert($campaign->body_html);
+
+    $this->put(route('mailing.campaigns.update', $campaign), [
+        'list_id' => (string) $this->list->id,
+        'subject' => 'Nieuws',
+        'body_html' => '<p>Een heel nieuwe tekst over de markt van april.</p>',
+        'body_text' => $generated,
+    ])->assertSessionHasNoErrors();
+
+    expect($campaign->fresh()->body_text)->toBe('Een heel nieuwe tekst over de markt van april.');
+
+    $this->put(route('mailing.campaigns.update', $campaign), [
+        'list_id' => (string) $this->list->id,
+        'subject' => 'Nieuws',
+        'body_html' => '<p>Weer een andere tekst over de markt van april.</p>',
+        'body_text' => 'Eigen tekst',
+    ])->assertSessionHasNoErrors();
+
+    expect($campaign->fresh()->body_text)->toBe('Eigen tekst');
+});
+
+test('the link check never calls addresses on the internal network', function (string $href): void {
+    $dns = healthyDns();
+    $dns->a['intern.rommelmarkt.test'] = [
+        '10.0.0.5',
+    ];
+    $campaign = makeCampaign($this->list, [
+        'body_html' => sprintf('<p>Kijk op <a href="%s">deze pagina</a> voor alles over de markt.</p>', $href),
+    ]);
+
+    expect(preflightStatuses($campaign)['links'])->toBe(PreflightItem::ERROR);
+
+    Http::assertNothingSent();
+})->with([
+    'private address behind a name' => ['https://intern.rommelmarkt.test/beheer'],
+    'loopback address' => ['https://127.0.0.1/'],
+    'metadata address' => ['https://169.254.169.254/latest'],
+    'name without an address' => ['https://onbekend.rommelmarkt.test/'],
+]);
+
+test('test mails skip suppressed addresses and are limited per hour', function (): void {
+    $campaign = makeCampaign($this->list);
+    Suppression::query()
+        ->create([
+            'email' => 'weg@example.org',
+            'reason' => SuppressionReason::HardBounce,
+        ]);
+
+    $this->actingWithPermissions([
+        MailingPermission::CampaignsEdit->value,
+        MailingPermission::CampaignsSend->value,
+    ]);
+
+    $this->post(route('mailing.campaigns.test', $campaign), [
+        'recipients' => 'weg@example.org',
+    ])->assertSessionHasErrors([
+        'recipients' => __('mailing::campaigns.errors.test_suppressed'),
+    ]);
+
+    foreach (range(1, 2) as $round) {
+        $this->post(route('mailing.campaigns.test', $campaign), [
+            'recipients' => 'a@example.org, b@example.org, c@example.org, d@example.org, weg@example.org',
+        ])->assertSessionHasNoErrors();
+    }
+
+    $this->post(route('mailing.campaigns.test', $campaign), [
+        'recipients' => 'a@example.org, b@example.org, c@example.org',
+    ])->assertSessionHasErrors([
+        'recipients' => __('mailing::campaigns.errors.test_limit', ['max' => 10]),
+    ]);
+
+    expect(sentMessages())->toHaveCount(8);
+});
+
+test('the schedule is entered and shown in the mailing time zone', function (): void {
+    $campaign = makeCampaign($this->list);
+    $campaign->forceFill([
+        'status' => CampaignStatus::Scheduled,
+        'scheduled_at' => '2026-11-02 09:00:00',
+    ])->save();
+
+    $this->actingWithPermissions([MailingPermission::CampaignsEdit->value]);
+
+    $page = $this->get(route('mailing.campaigns.show', $campaign), [
+        'X-Inertia' => 'true',
+    ])->assertOk();
+
+    expect($page->json('props.campaign.scheduledAt'))->toBe(CarbonImmutable::parse('2026-11-02 10:00:00')->isoFormat('D MMMM YYYY HH:mm'))
+        ->and((new ScheduleForm)->fields()[0]->getTimezone())->toBe('Europe/Amsterdam');
 });

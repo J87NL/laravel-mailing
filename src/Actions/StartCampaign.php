@@ -16,6 +16,11 @@ use J87NL\Mailing\Models\Suppression;
 
 class StartCampaign
 {
+    private const array STARTABLE = [
+        CampaignStatus::Draft,
+        CampaignStatus::Scheduled,
+    ];
+
     private const int CHUNK = 500;
 
     public function handle(Campaign $campaign): bool
@@ -25,7 +30,7 @@ class StartCampaign
                 ->lockForUpdate()
                 ->findOrFail($campaign->id);
 
-            if (! in_array($campaign->status, [CampaignStatus::Draft, CampaignStatus::Scheduled], true)) {
+            if (! in_array($campaign->status, self::STARTABLE, true)) {
                 return false;
             }
 
@@ -34,7 +39,8 @@ class StartCampaign
                 ->where('list_id', $campaign->list_id)
                 ->where('status', SubscriptionStatus::Subscribed)
                 ->whereNotNull('confirmed_at')
-                ->whereDoesntHave('subscriber', fn (Builder $query): Builder => $query->whereIn('email', Suppression::query()->select('email')))
+                ->whereDoesntHave('subscriber', fn (Builder $query): Builder => $query->whereIn('email', Suppression::query()
+                    ->select('email')))
                 ->chunkById(self::CHUNK, function ($subscriptions) use ($campaign): void {
                     $now = now();
                     $rows = [];
@@ -51,7 +57,8 @@ class StartCampaign
                         ];
                     }
 
-                    Send::query()->insertOrIgnore($rows);
+                    Send::query()
+                        ->insertOrIgnore($rows);
                 });
 
             $campaign->forceFill([

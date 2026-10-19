@@ -18,6 +18,10 @@ class ConsentSource
 
     public const string UNSUBSCRIBE_PAGE = 'unsubscribe-page';
 
+    public const string DSN = 'dsn';
+
+    public const string WEBHOOK = 'webhook';
+
     private const int MAX_DETAIL_LENGTH = 200;
 
     private const string SEPARATOR = ': ';

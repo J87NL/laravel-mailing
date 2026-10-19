@@ -15,6 +15,11 @@ use Symfony\Component\Mime\Email;
 
 class LettermintDriver implements MailingDriver
 {
+    private const array RECIPIENT_KEYS = [
+        'recipient',
+        'value',
+    ];
+
     public const string SIGNATURE_HEADER = 'X-Lettermint-Signature';
 
     public const string DELIVERY_HEADER = 'X-Lettermint-Delivery';
@@ -135,7 +140,7 @@ class LettermintDriver implements MailingDriver
      */
     private function recipient(array $data): ?string
     {
-        foreach (['recipient', 'value'] as $key) {
+        foreach (self::RECIPIENT_KEYS as $key) {
             if (is_string($data[$key] ?? null) && $data[$key] !== '') {
                 return $data[$key];
             }

@@ -29,10 +29,13 @@ class SendCampaignMessage implements ShouldQueue
     use InteractsWithQueue;
     use Queueable;
 
+    public const string SKIPPED_UNSUBSCRIBED = 'skipped_unsubscribed';
+
     public int $tries = 1;
 
     public function __construct(
         public readonly int $sendId,
+        public readonly int $attempt,
     ) {
         $this->onQueue((string) config('mailing.sending.queue', 'mailing'));
     }
@@ -58,9 +61,10 @@ class SendCampaignMessage implements ShouldQueue
                 SendStatus::Queued,
                 SendStatus::Deferred,
             ])
+            ->where('attempts', $this->attempt)
             ->update([
                 'status' => SendStatus::Sending,
-                'attempts' => $send->attempts + 1,
+                'attempts' => $this->attempt + 1,
                 'message_id' => sprintf('<%s>', $messageId),
                 'sending_started_at' => now(),
                 'next_attempt_at' => null,
@@ -76,7 +80,7 @@ class SendCampaignMessage implements ShouldQueue
         $subscription = $send->subscription;
 
         if (is_null($subscription) || $subscription->status !== SubscriptionStatus::Subscribed || Suppression::covers($send->email)) {
-            $this->finish($send, SendStatus::Skipped, 'recipient no longer subscribed');
+            $this->finish($send, SendStatus::Skipped, self::SKIPPED_UNSUBSCRIBED);
 
             return;
         }
@@ -98,11 +102,11 @@ class SendCampaignMessage implements ShouldQueue
             return;
         }
 
-        $send->forceFill([
+        $this->leaveSending($send, [
             'status' => SendStatus::HandedOver,
             'handed_over_at' => now(),
             'last_response' => null,
-        ])->save();
+        ]);
     }
 
     private function failedTransport(Send $send, TransportExceptionInterface $exception, RetrySchedule $retries): void
@@ -117,18 +121,32 @@ class SendCampaignMessage implements ShouldQueue
             return;
         }
 
-        $send->forceFill([
+        $this->leaveSending($send, [
             'status' => SendStatus::Deferred,
             'next_attempt_at' => now()->addMinutes($delay),
             'last_response' => Str::limit($exception->getMessage(), 1000),
-        ])->save();
+        ]);
     }
 
     private function finish(Send $send, SendStatus $status, string $response): void
     {
-        $send->forceFill([
+        $this->leaveSending($send, [
             'status' => $status,
             'last_response' => Str::limit($response, 1000),
-        ])->save();
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function leaveSending(Send $send, array $attributes): void
+    {
+        Send::query()
+            ->whereKey($send->id)
+            ->where('status', SendStatus::Sending)
+            ->update([
+                ...$attributes,
+                'updated_at' => now(),
+            ]);
     }
 }

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use J87NL\Mailing\Models\MailingList;
 use J87NL\Mailing\Models\RateCounter;
 use J87NL\Mailing\Support\EmailAddress;
+use J87NL\Mailing\Support\MailingTime;
 
 class SendingLimits
 {
@@ -25,7 +26,7 @@ class SendingLimits
         if (! is_null($list->daily_cap)) {
             $limits[] = [
                 sprintf('list:%d:day', $list->id),
-                $now->startOfDay(),
+                MailingTime::startOfDay($now),
                 $list->daily_cap,
             ];
         }

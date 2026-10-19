@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use J87NL\Mailing\Actions\ApplyDeliveryEvent;
 use J87NL\Mailing\Drivers\DriverRegistry;
 use J87NL\Mailing\Models\WebhookEvent;
+use J87NL\Mailing\Support\ConsentSource;
 
 class WebhookController extends Controller
 {
@@ -34,13 +35,14 @@ class WebhookController extends Controller
         foreach ($mailingDriver->parseWebhook($request) as $event) {
             try {
                 DB::transaction(function () use ($event, $driver, $applyDeliveryEvent): void {
-                    WebhookEvent::query()->create([
-                        'driver' => $driver,
-                        'event_id' => $event->eventId,
-                        'event' => $event->type->value,
-                    ]);
+                    WebhookEvent::query()
+                        ->create([
+                            'driver' => $driver,
+                            'event_id' => $event->eventId,
+                            'event' => $event->type->value,
+                        ]);
 
-                    $applyDeliveryEvent->handle($event, $driver);
+                    $applyDeliveryEvent->handle($event, ConsentSource::make(ConsentSource::WEBHOOK, $driver));
                 });
             } catch (UniqueConstraintViolationException) {
                 continue;

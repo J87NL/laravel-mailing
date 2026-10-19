@@ -15,7 +15,10 @@ class ChangeCampaignStatus
 {
     public function schedule(Campaign $campaign, CarbonImmutable $at): bool
     {
-        return $this->transition($campaign, [CampaignStatus::Draft, CampaignStatus::Scheduled], CampaignStatus::Scheduled, [
+        return $this->transition($campaign, [
+            CampaignStatus::Draft,
+            CampaignStatus::Scheduled,
+        ], CampaignStatus::Scheduled, [
             'scheduled_at' => $at,
         ]);
     }
@@ -40,7 +43,12 @@ class ChangeCampaignStatus
     public function cancel(Campaign $campaign): bool
     {
         return DB::transaction(function () use ($campaign): bool {
-            $changed = $this->transition($campaign, [CampaignStatus::Draft, CampaignStatus::Scheduled, CampaignStatus::Sending, CampaignStatus::Paused], CampaignStatus::Cancelled, [
+            $changed = $this->transition($campaign, [
+                CampaignStatus::Draft,
+                CampaignStatus::Scheduled,
+                CampaignStatus::Sending,
+                CampaignStatus::Paused,
+            ], CampaignStatus::Cancelled, [
                 'finished_at' => now(),
             ]);
 
@@ -69,6 +77,7 @@ class ChangeCampaignStatus
             $retried = Send::query()
                 ->where('campaign_id', $campaign->id)
                 ->where('status', SendStatus::Failed)
+                ->whereNull('handed_over_at')
                 ->update([
                     'status' => SendStatus::Queued,
                     'next_attempt_at' => null,

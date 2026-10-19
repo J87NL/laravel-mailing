@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace J87NL\Mailing\Forms;
 
+use J87NL\Mailing\Support\MailingTime;
 use TranquilTools\FormBuilder\AbstractForm;
 use TranquilTools\FormBuilder\Fields\BaseField;
 use TranquilTools\FormBuilder\Fields\DateTime;
@@ -26,6 +27,7 @@ class ScheduleForm extends AbstractForm
             DateTime::make('scheduled_at')
                 ->label(__('mailing::campaigns.fields.scheduled_at'))
                 ->help(__('mailing::campaigns.help.scheduled_at'))
+                ->timezone(MailingTime::timezone())
                 ->rules([
                     'nullable',
                     'date',

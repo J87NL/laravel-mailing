@@ -73,14 +73,15 @@ function makeSubscription(MailingList $list, string $email = 'lid@example.org', 
  */
 function makeCampaign(MailingList $list, array $attributes = []): Campaign
 {
-    return Campaign::query()->create([
-        'list_id' => $list->id,
-        'subject' => 'Nieuws van de rommelmarkt',
-        'preheader' => 'De data voor volgend jaar',
-        'body_html' => '<h2>Volgende markt</h2><p>Op zaterdag 3 april staan we weer klaar. Kijk op <a href="https://rommelmarkt.test/data">de site</a>.</p>',
-        'body_text' => 'Op zaterdag 3 april staan we weer klaar.',
-        ...$attributes,
-    ]);
+    return Campaign::query()
+        ->create([
+            'list_id' => $list->id,
+            'subject' => 'Nieuws van de rommelmarkt',
+            'preheader' => 'De data voor volgend jaar',
+            'body_html' => '<h2>Volgende markt</h2><p>Op zaterdag 3 april staan we weer klaar. Kijk op <a href="https://rommelmarkt.test/data">de site</a>.</p>',
+            'body_text' => 'Op zaterdag 3 april staan we weer klaar.',
+            ...$attributes,
+        ]);
 }
 
 /**

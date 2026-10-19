@@ -75,8 +75,10 @@ test('a hard bounce suppresses the address and marks the subscription bounced', 
     expect($send->fresh()->status)->toBe(SendStatus::Bounced)
         ->and($send->fresh()->bounce_type)->toBe(BounceType::Hard)
         ->and($send->fresh()->bounce_diagnostic)->toContain('User unknown')
-        ->and(Suppression::query()->sole()->reason)->toBe(SuppressionReason::HardBounce)
-        ->and(Subscription::query()->sole()->status)->toBe(SubscriptionStatus::Bounced)
+        ->and(Suppression::query()
+            ->sole()->reason)->toBe(SuppressionReason::HardBounce)
+        ->and(Subscription::query()
+            ->sole()->status)->toBe(SubscriptionStatus::Bounced)
         ->and(app(MailboxReader::class)->unprocessed())->toBe([]);
 });
 
@@ -90,6 +92,25 @@ test('a DSN without the VERP address is matched on its Message-ID', function ():
     expect($send->fresh()->status)->toBe(SendStatus::Bounced);
 });
 
+test('a DSN that matches no send of ours changes nothing', function (): void {
+    $send = sentCampaign();
+    $raw = dsn('hard-bounce', $send, false);
+    $send->forceFill([
+        'message_id' => '<iets-anders@rommelmarkt.test>',
+    ])->save();
+
+    deliverToBounceMailbox($raw);
+
+    $this->artisan('mailing:process-bounces')->assertSuccessful();
+
+    expect($send->fresh()->status)->not->toBe(SendStatus::Bounced)
+        ->and(Suppression::query()
+            ->count())->toBe(0)
+        ->and(BounceEvent::query()
+            ->count())->toBe(0)
+        ->and(app(MailboxReader::class)->unprocessed())->toBe([]);
+});
+
 test('three soft bounces within 30 days suppress the address, two do not', function (): void {
     foreach (range(1, 2) as $attempt) {
         deliverToBounceMailbox(dsn('soft-bounce', sentCampaign()));
@@ -97,15 +118,19 @@ test('three soft bounces within 30 days suppress the address, two do not', funct
 
     $this->artisan('mailing:process-bounces')->assertSuccessful();
 
-    expect(Suppression::query()->count())->toBe(0)
-        ->and(BounceEvent::query()->where('type', BounceType::Soft)->count())->toBe(2)
-        ->and(Send::query()->pluck('status')->unique()->all())->toBe([SendStatus::Deferred]);
+    expect(Suppression::query()
+        ->count())->toBe(0)
+        ->and(BounceEvent::query()
+            ->where('type', BounceType::Soft)->count())->toBe(2)
+        ->and(Send::query()
+            ->pluck('status')->unique()->all())->toBe([SendStatus::Deferred]);
 
     deliverToBounceMailbox(dsn('soft-bounce', sentCampaign()));
 
     $this->artisan('mailing:process-bounces')->assertSuccessful();
 
-    expect(Suppression::query()->sole()->reason)->toBe(SuppressionReason::SoftBounces);
+    expect(Suppression::query()
+        ->sole()->reason)->toBe(SuppressionReason::SoftBounces);
 });
 
 test('soft bounces older than 30 days do not count', function (): void {
@@ -122,7 +147,8 @@ test('soft bounces older than 30 days do not count', function (): void {
 
     $this->artisan('mailing:process-bounces')->assertSuccessful();
 
-    expect(Suppression::query()->count())->toBe(0);
+    expect(Suppression::query()
+        ->count())->toBe(0);
 });
 
 test('a delay notification marks the send deferred without counting as a bounce or resending', function (): void {
@@ -134,7 +160,8 @@ test('a delay notification marks the send deferred without counting as a bounce 
 
     expect($send->fresh()->status)->toBe(SendStatus::Deferred)
         ->and($send->fresh()->next_attempt_at)->toBeNull()
-        ->and(BounceEvent::query()->count())->toBe(0);
+        ->and(BounceEvent::query()
+            ->count())->toBe(0);
 
     runDispatcher(now()->toImmutable()->addDay());
 
@@ -148,6 +175,7 @@ test('mail that is not a delivery status notification is archived without effect
 
     $this->artisan('mailing:process-bounces')->assertSuccessful();
 
-    expect(BounceEvent::query()->count())->toBe(0)
+    expect(BounceEvent::query()
+        ->count())->toBe(0)
         ->and(app(MailboxReader::class)->unprocessed())->toBe([]);
 });

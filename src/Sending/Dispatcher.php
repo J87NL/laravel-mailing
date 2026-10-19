@@ -15,6 +15,8 @@ use J87NL\Mailing\Models\Send;
 
 class Dispatcher
 {
+    public const string INTERRUPTED = 'interrupted';
+
     private const int LEASE_MINUTES = 10;
 
     public function __construct(
@@ -94,13 +96,11 @@ class Dispatcher
                 continue;
             }
 
-            if ($send->status === SendStatus::Queued) {
-                $send->forceFill([
-                    'next_attempt_at' => $now->addMinutes(self::LEASE_MINUTES),
-                ])->save();
-            }
+            $send->forceFill([
+                'next_attempt_at' => $now->addMinutes(self::LEASE_MINUTES),
+            ])->save();
 
-            SendCampaignMessage::dispatch($send->id);
+            SendCampaignMessage::dispatch($send->id, $send->attempts);
             $dispatched++;
         }
 
@@ -114,7 +114,7 @@ class Dispatcher
             ->where('sending_started_at', '<', $now->subMinutes((int) config('mailing.sending.stale_minutes', 30)))
             ->update([
                 'status' => SendStatus::Failed,
-                'last_response' => 'interrupted',
+                'last_response' => self::INTERRUPTED,
                 'updated_at' => $now,
             ]);
     }
@@ -136,11 +136,13 @@ class Dispatcher
             return false;
         }
 
-        $campaign->forceFill([
-            'status' => CampaignStatus::Sent,
-            'finished_at' => $now,
-        ])->save();
-
-        return true;
+        return Campaign::query()
+            ->whereKey($campaign->id)
+            ->where('status', CampaignStatus::Sending)
+            ->update([
+                'status' => CampaignStatus::Sent,
+                'finished_at' => $now,
+                'updated_at' => $now,
+            ]) === 1;
     }
 }

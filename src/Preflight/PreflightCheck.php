@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace J87NL\Mailing\Preflight;
 
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use J87NL\Mailing\Contracts\DnsResolver;
 use J87NL\Mailing\Contracts\SpamScorer;
@@ -17,6 +18,8 @@ use J87NL\Mailing\Support\EmailAddress;
 class PreflightCheck
 {
     private const int MIN_TEXT_LENGTH = 20;
+
+    private const int CACHE_SECONDS = 600;
 
     public function __construct(
         private readonly DnsResolver $dns,
@@ -48,6 +51,28 @@ class PreflightCheck
     }
 
     /**
+     * @return list<PreflightItem>
+     */
+    public function cached(Campaign $campaign): array
+    {
+        $key = sprintf('mailing:preflight:%d:%s', $campaign->id, $campaign->updated_at?->getTimestamp() ?? 0);
+
+        $items = Cache::remember($key, self::CACHE_SECONDS, fn (): array => array_map(
+            fn (PreflightItem $item): array => [
+                'key' => $item->key,
+                'status' => $item->status,
+                'message' => $item->message,
+            ],
+            $this->run($campaign),
+        ));
+
+        return array_map(
+            fn (array $item): PreflightItem => new PreflightItem($item['key'], $item['status'], $item['message']),
+            $items,
+        );
+    }
+
+    /**
      * @param  list<PreflightItem>  $items
      */
     public static function blocks(array $items): bool
@@ -66,7 +91,9 @@ class PreflightCheck
         $record = $this->record($this->dns->txt($domain), 'v=spf1');
 
         if (is_null($record)) {
-            return $this->item('spf', PreflightItem::ERROR, 'spf.missing', ['domain' => $domain]);
+            return $this->item('spf', PreflightItem::ERROR, 'spf.missing', [
+                'domain' => $domain,
+            ]);
         }
 
         $required = config(sprintf('mailing.preflight.spf.%s', $driver), []);
@@ -76,10 +103,14 @@ class PreflightCheck
         ));
 
         if ($missing !== []) {
-            return $this->item('spf', PreflightItem::ERROR, 'spf.incomplete', ['missing' => implode(', ', $missing)]);
+            return $this->item('spf', PreflightItem::ERROR, 'spf.incomplete', [
+                'missing' => implode(', ', $missing),
+            ]);
         }
 
-        return $this->item('spf', PreflightItem::OK, 'spf.ok', ['record' => $record]);
+        return $this->item('spf', PreflightItem::OK, 'spf.ok', [
+            'record' => $record,
+        ]);
     }
 
     private function dkim(string $domain, string $driver): PreflightItem
@@ -96,11 +127,15 @@ class PreflightCheck
                 ?? $this->record($this->dns->txt(sprintf('%s._domainkey.%s', $selector, $domain)), 'p=');
 
             if (is_null($record)) {
-                return $this->item('dkim', PreflightItem::ERROR, 'dkim.missing', ['selector' => $selector]);
+                return $this->item('dkim', PreflightItem::ERROR, 'dkim.missing', [
+                    'selector' => $selector,
+                ]);
             }
         }
 
-        return $this->item('dkim', PreflightItem::OK, 'dkim.ok', ['selectors' => implode(', ', $selectors)]);
+        return $this->item('dkim', PreflightItem::OK, 'dkim.ok', [
+            'selectors' => implode(', ', $selectors),
+        ]);
     }
 
     private function dmarc(string $domain): PreflightItem
@@ -108,10 +143,14 @@ class PreflightCheck
         $record = $this->record($this->dns->txt(sprintf('_dmarc.%s', $domain)), 'v=DMARC1');
 
         if (is_null($record)) {
-            return $this->item('dmarc', PreflightItem::ERROR, 'dmarc.missing', ['domain' => $domain]);
+            return $this->item('dmarc', PreflightItem::ERROR, 'dmarc.missing', [
+                'domain' => $domain,
+            ]);
         }
 
-        return $this->item('dmarc', PreflightItem::OK, 'dmarc.ok', ['record' => $record]);
+        return $this->item('dmarc', PreflightItem::OK, 'dmarc.ok', [
+            'record' => $record,
+        ]);
     }
 
     private function alignment(string $domain, string $driver): PreflightItem
@@ -127,7 +166,9 @@ class PreflightCheck
         }
 
         if ($bounceDomain === $domain || str_ends_with($bounceDomain, sprintf('.%s', $domain))) {
-            return $this->item('alignment', PreflightItem::OK, 'alignment.ok', ['domain' => $bounceDomain]);
+            return $this->item('alignment', PreflightItem::OK, 'alignment.ok', [
+                'domain' => $bounceDomain,
+            ]);
         }
 
         return $this->item('alignment', PreflightItem::ERROR, 'alignment.mismatch', [
@@ -169,14 +210,20 @@ class PreflightCheck
         }
 
         if ($listed !== []) {
-            return $this->item('blocklists', PreflightItem::ERROR, 'blocklists.listed', ['listed' => implode(', ', array_unique($listed))]);
+            return $this->item('blocklists', PreflightItem::ERROR, 'blocklists.listed', [
+                'listed' => implode(', ', array_unique($listed)),
+            ]);
         }
 
         if ($unclear !== []) {
-            return $this->item('blocklists', PreflightItem::WARNING, 'blocklists.refused', ['zones' => implode(', ', array_unique($unclear))]);
+            return $this->item('blocklists', PreflightItem::WARNING, 'blocklists.refused', [
+                'zones' => implode(', ', array_unique($unclear)),
+            ]);
         }
 
-        return $this->item('blocklists', PreflightItem::OK, 'blocklists.ok', ['ips' => implode(', ', $ips)]);
+        return $this->item('blocklists', PreflightItem::OK, 'blocklists.ok', [
+            'ips' => implode(', ', $ips),
+        ]);
     }
 
     private function spamScore(Campaign $campaign): PreflightItem
@@ -191,10 +238,14 @@ class PreflightCheck
         $threshold = (float) config('mailing.preflight.spam_threshold', 5.0);
 
         if ($score >= $threshold) {
-            return $this->item('spam_score', PreflightItem::ERROR, 'spam_score.high', ['score' => number_format($score, 1)]);
+            return $this->item('spam_score', PreflightItem::ERROR, 'spam_score.high', [
+                'score' => number_format($score, 1),
+            ]);
         }
 
-        return $this->item('spam_score', PreflightItem::OK, 'spam_score.ok', ['score' => number_format($score, 1)]);
+        return $this->item('spam_score', PreflightItem::OK, 'spam_score.ok', [
+            'score' => number_format($score, 1),
+        ]);
     }
 
     private function links(Campaign $campaign): PreflightItem
@@ -224,10 +275,14 @@ class PreflightCheck
         }
 
         if ($broken !== []) {
-            return $this->item('links', PreflightItem::ERROR, 'links.broken', ['urls' => implode(', ', $broken)]);
+            return $this->item('links', PreflightItem::ERROR, 'links.broken', [
+                'urls' => implode(', ', $broken),
+            ]);
         }
 
-        return $this->item('links', PreflightItem::OK, 'links.ok', ['count' => count($urls)]);
+        return $this->item('links', PreflightItem::OK, 'links.ok', [
+            'count' => count($urls),
+        ]);
     }
 
     private function text(Campaign $campaign): PreflightItem
@@ -243,21 +298,57 @@ class PreflightCheck
 
     private function answers(string $url): bool
     {
+        $host = parse_url($url, PHP_URL_HOST);
+        $port = parse_url($url, PHP_URL_PORT) ?? 443;
+
+        if (! is_string($host) || $host === '') {
+            return false;
+        }
+
+        $address = $this->publicAddress($host);
+
+        if (is_null($address)) {
+            return false;
+        }
+
+        $request = Http::timeout(8)
+            ->withoutRedirecting()
+            ->withOptions([
+                'curl' => [
+                    CURLOPT_RESOLVE => [
+                        sprintf('%s:%d:%s', $host, $port, $address),
+                    ],
+                ],
+            ]);
+
         try {
-            $response = Http::timeout(8)
-                ->withoutRedirecting()
-                ->head($url);
+            $response = $request->head($url);
 
             if ($response->status() === 405) {
-                $response = Http::timeout(8)
-                    ->withoutRedirecting()
-                    ->get($url);
+                $response = $request->get($url);
             }
         } catch (ConnectionException) {
             return false;
         }
 
         return $response->status() === 200;
+    }
+
+    private function publicAddress(string $host): ?string
+    {
+        $addresses = filter_var($host, FILTER_VALIDATE_IP) === false ? $this->dns->a($host) : [$host];
+
+        if ($addresses === []) {
+            return null;
+        }
+
+        foreach ($addresses as $address) {
+            if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_GLOBAL_RANGE) === false) {
+                return null;
+            }
+        }
+
+        return $addresses[0];
     }
 
     /**

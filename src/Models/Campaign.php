@@ -67,10 +67,7 @@ class Campaign extends Model
 
     public function isEditable(): bool
     {
-        return in_array($this->status, [
-            CampaignStatus::Draft,
-            CampaignStatus::Scheduled,
-        ], true);
+        return $this->status === CampaignStatus::Draft;
     }
 
     /**

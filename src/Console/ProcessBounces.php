@@ -8,11 +8,13 @@ use Illuminate\Console\Command;
 use J87NL\Mailing\Actions\ApplyBounce;
 use J87NL\Mailing\Actions\ApplyDeliveryEvent;
 use J87NL\Mailing\Bounces\DsnParser;
+use J87NL\Mailing\Bounces\DsnReport;
 use J87NL\Mailing\Contracts\MailboxReader;
 use J87NL\Mailing\Delivery\DeliveryEvent;
 use J87NL\Mailing\Enums\BounceType;
 use J87NL\Mailing\Enums\DeliveryEventType;
 use J87NL\Mailing\Models\Send;
+use J87NL\Mailing\Support\ConsentSource;
 
 class ProcessBounces extends Command
 {
@@ -27,35 +29,10 @@ class ProcessBounces extends Command
         foreach ($reader->unprocessed() as $message) {
             $report = $parser->parse($message->raw);
 
-            if (! is_null($report)) {
-                $send = $this->send($report->verpSendId, $report->originalMessageId);
+            $send = is_null($report) ? null : $this->send($report->verpSendId, $report->originalMessageId);
 
-                foreach ($report->recipients as $recipient) {
-                    if ($recipient->isDelay()) {
-                        $applyDeliveryEvent->handle(new DeliveryEvent(
-                            type: DeliveryEventType::Deferred,
-                            eventId: $message->id,
-                            sendId: $send?->id,
-                            recipient: $recipient->recipient,
-                            diagnostic: $recipient->diagnostic,
-                        ), 'dsn');
-
-                        continue;
-                    }
-
-                    if (! $recipient->isHard() && ! $recipient->isSoft()) {
-                        continue;
-                    }
-
-                    $applyBounce->handle(
-                        $send->email ?? $recipient->recipient,
-                        $send,
-                        $recipient->isHard() ? BounceType::Hard : BounceType::Soft,
-                        'dsn',
-                        trim(sprintf('%s %s', $recipient->status, (string) $recipient->diagnostic)),
-                    );
-                }
-
+            if (! is_null($report) && ! is_null($send)) {
+                $this->apply($report, $send, $message->id, $applyBounce, $applyDeliveryEvent);
                 $processed++;
             }
 
@@ -67,10 +44,42 @@ class ProcessBounces extends Command
         return self::SUCCESS;
     }
 
+    private function apply(DsnReport $report, Send $send, string $messageId, ApplyBounce $applyBounce, ApplyDeliveryEvent $applyDeliveryEvent): void
+    {
+        $source = ConsentSource::make(ConsentSource::DSN);
+
+        foreach ($report->recipients as $recipient) {
+            if ($recipient->isDelay()) {
+                $applyDeliveryEvent->handle(new DeliveryEvent(
+                    type: DeliveryEventType::Deferred,
+                    eventId: $messageId,
+                    sendId: $send->id,
+                    recipient: $send->email,
+                    diagnostic: $recipient->diagnostic,
+                ), $source);
+
+                continue;
+            }
+
+            if (! $recipient->isHard() && ! $recipient->isSoft()) {
+                continue;
+            }
+
+            $applyBounce->handle(
+                $send->email,
+                $send,
+                $recipient->isHard() ? BounceType::Hard : BounceType::Soft,
+                $source,
+                trim(sprintf('%s %s', $recipient->status, (string) $recipient->diagnostic)),
+            );
+        }
+    }
+
     private function send(?int $verpSendId, ?string $messageId): ?Send
     {
         if (! is_null($verpSendId)) {
-            return Send::query()->find($verpSendId);
+            return Send::query()
+                ->find($verpSendId);
         }
 
         if (is_null($messageId) || $messageId === '') {

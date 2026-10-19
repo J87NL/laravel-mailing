@@ -23,6 +23,8 @@ return [
         'attempts' => 'Pogingen',
         'handed_over_at' => 'Overgedragen',
         'last_response' => 'Laatste antwoord',
+        'test_limit' => 'Je hebt het maximum van :max testmails per uur bereikt.',
+        'test_suppressed' => 'Alle opgegeven adressen staan op de blokkeerlijst.',
         'test_recipients' => 'Testadressen',
     ],
     'help' => [
@@ -70,6 +72,10 @@ return [
         'no_recipients' => 'Deze lijst heeft nog geen bevestigde abonnees.',
         'status' => 'Dat kan niet in de status ":status".',
         'test_recipients' => 'Geef één tot :max geldige e-mailadressen op.',
+    ],
+    'responses' => [
+        'interrupted' => 'Onderbroken tijdens het versturen; alleen opnieuw versturen als de mail niet is aangekomen.',
+        'skipped_unsubscribed' => 'Overgeslagen: het adres is afgemeld of geblokkeerd.',
     ],
     'flash' => [
         'saved' => 'De mailing is opgeslagen.',

@@ -23,6 +23,8 @@ return [
         'attempts' => 'Attempts',
         'handed_over_at' => 'Handed over',
         'last_response' => 'Last response',
+        'test_limit' => 'You have reached the maximum of :max test mails per hour.',
+        'test_suppressed' => 'All given addresses are suppressed.',
         'test_recipients' => 'Test addresses',
     ],
     'help' => [
@@ -70,6 +72,10 @@ return [
         'no_recipients' => 'This list has no confirmed subscribers yet.',
         'status' => 'That is not possible in the status ":status".',
         'test_recipients' => 'Enter one to :max valid email addresses.',
+    ],
+    'responses' => [
+        'interrupted' => 'Interrupted while sending; only retry when the mail did not arrive.',
+        'skipped_unsubscribed' => 'Skipped: the address unsubscribed or is suppressed.',
     ],
     'flash' => [
         'saved' => 'The mailing has been saved.',

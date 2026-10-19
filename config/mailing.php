@@ -18,6 +18,8 @@ return [
 
     'toast_flash_key' => 'toast',
 
+    'timezone' => env('MAILING_TIMEZONE', 'Europe/Amsterdam'),
+
     'layout' => 'mailing::layouts.default',
 
     'routes' => [

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use J87NL\Mailing\MailingPermission;
 use J87NL\Mailing\Models\Campaign;
+use J87NL\Mailing\Support\MailingTime;
 use TranquilTools\TableBuilder\AbstractTable;
 use TranquilTools\TableBuilder\TableBuilder;
 
@@ -40,7 +41,7 @@ final class CampaignTable extends AbstractTable
             ->column('list', __('mailing::campaigns.fields.list'), as: fn (mixed $value, Campaign $campaign): string => $campaign->mailingList->name)
             ->column('status', __('mailing::campaigns.fields.status'), as: fn (mixed $value, Campaign $campaign): string => $campaign->status->label())
             ->column('sends_count', __('mailing::campaigns.fields.recipients'))
-            ->column('scheduled_at', __('mailing::campaigns.fields.scheduled_at'), as: fn (mixed $value, Campaign $campaign): string => $campaign->scheduled_at?->isoFormat('D MMM YYYY HH:mm') ?? '')
+            ->column('scheduled_at', __('mailing::campaigns.fields.scheduled_at'), as: fn (mixed $value, Campaign $campaign): string => MailingTime::format($campaign->scheduled_at, 'D MMM YYYY HH:mm') ?? '')
             ->paginate(25);
 
         $table->rowAction(

@@ -11,8 +11,11 @@ use J87NL\Mailing\Enums\SendStatus;
 use J87NL\Mailing\Enums\SubscriptionStatus;
 use J87NL\Mailing\Enums\SuppressionReason;
 use J87NL\Mailing\Jobs\SendCampaignMessage;
+use J87NL\Mailing\MailingPermission;
 use J87NL\Mailing\Models\Send;
 use J87NL\Mailing\Models\Suppression;
+use J87NL\Mailing\Sending\Dispatcher;
+use J87NL\Mailing\Sending\SendingLimits;
 use J87NL\Mailing\Sending\Verp;
 use J87NL\Mailing\Tests\Fakes\FailingTransport;
 use Symfony\Component\Mailer\SentMessage;
@@ -30,15 +33,17 @@ test('unconfirmed, unsubscribed and suppressed addresses never receive a campaig
     makeSubscription($this->list, 'wacht@example.org', SubscriptionStatus::Pending);
     makeSubscription($this->list, 'weg@example.org', SubscriptionStatus::Unsubscribed);
     makeSubscription($this->list, 'geblokkeerd@example.org');
-    Suppression::query()->create([
-        'email' => 'geblokkeerd@example.org',
-        'reason' => SuppressionReason::HardBounce,
-    ]);
+    Suppression::query()
+        ->create([
+            'email' => 'geblokkeerd@example.org',
+            'reason' => SuppressionReason::HardBounce,
+        ]);
 
     $campaign = makeCampaign($this->list);
     app(StartCampaign::class)->handle($campaign);
 
-    expect(Send::query()->pluck('email')->all())->toBe(['lid@example.org']);
+    expect(Send::query()
+        ->pluck('email')->all())->toBe(['lid@example.org']);
 
     runDispatcher();
 
@@ -53,7 +58,8 @@ test('campaign mails carry the List headers, a plain-text part, the stored Messa
 
     runDispatcher();
 
-    $send = Send::query()->sole();
+    $send = Send::query()
+        ->sole();
     $message = sentMessages()->sole()->getOriginalMessage();
 
     expect($message)->toBeInstanceOf(Email::class);
@@ -121,10 +127,11 @@ test('a send is claimed once, so a repeated job sends nothing twice', function (
     makeSubscription($this->list);
     app(StartCampaign::class)->handle(makeCampaign($this->list));
 
-    $send = Send::query()->sole();
+    $send = Send::query()
+        ->sole();
 
-    SendCampaignMessage::dispatchSync($send->id);
-    SendCampaignMessage::dispatchSync($send->id);
+    SendCampaignMessage::dispatchSync($send->id, 0);
+    SendCampaignMessage::dispatchSync($send->id, 0);
 
     expect(sentMessages())->toHaveCount(1)
         ->and($send->fresh()->attempts)->toBe(1);
@@ -135,7 +142,8 @@ test('a stale sending row becomes failed and is never retried automatically', fu
     $campaign = makeCampaign($this->list);
     app(StartCampaign::class)->handle($campaign);
 
-    $send = Send::query()->sole();
+    $send = Send::query()
+        ->sole();
     $send->forceFill([
         'status' => SendStatus::Sending,
         'sending_started_at' => now()->subMinutes(31),
@@ -170,7 +178,8 @@ test('a 4xx answer is retried after 15 minutes, 1 hour and 4 hours and then fail
     makeSubscription($this->list);
     app(StartCampaign::class)->handle(makeCampaign($this->list));
 
-    $send = Send::query()->sole();
+    $send = Send::query()
+        ->sole();
     $now = CarbonImmutable::parse('2026-11-02 10:00:00');
     $this->travelTo($now);
 
@@ -213,7 +222,8 @@ test('a 5xx answer fails without retries', function (): void {
 
     runDispatcher();
 
-    expect(Send::query()->sole()->status)->toBe(SendStatus::Failed);
+    expect(Send::query()
+        ->sole()->status)->toBe(SendStatus::Failed);
 
     FailingTransport::$code = 450;
 });
@@ -238,7 +248,8 @@ test('pausing stops the dispatcher, resuming continues and cancelling drops the 
 
     expect(sentMessages())->toHaveCount(1)
         ->and($status->cancel($campaign))->toBeTrue()
-        ->and(Send::query()->where('status', SendStatus::Cancelled)->count())->toBe(1)
+        ->and(Send::query()
+            ->where('status', SendStatus::Cancelled)->count())->toBe(1)
         ->and(runDispatcher(CarbonImmutable::now()->addMinute())['dispatched'])->toBe(0);
 });
 
@@ -248,9 +259,11 @@ test('a job for a paused campaign leaves its send in the queue', function (): vo
     app(StartCampaign::class)->handle($campaign);
     app(ChangeCampaignStatus::class)->pause($campaign);
 
-    SendCampaignMessage::dispatchSync(Send::query()->sole()->id);
+    SendCampaignMessage::dispatchSync(Send::query()
+        ->sole()->id, 0);
 
-    expect(Send::query()->sole()->status)->toBe(SendStatus::Queued)
+    expect(Send::query()
+        ->sole()->status)->toBe(SendStatus::Queued)
         ->and(sentMessages())->toHaveCount(0);
 });
 
@@ -266,6 +279,84 @@ test('a scheduled campaign starts when its time has come and snapshots its recip
     makeSubscription($this->list, 'later@example.org');
 
     expect(runDispatcher($at)['started'])->toBe(1)
-        ->and(Send::query()->count())->toBe(2)
+        ->and(Send::query()
+            ->count())->toBe(2)
         ->and($campaign->fresh()->started_at)->not->toBeNull();
+});
+
+test('a job dispatched for an earlier attempt sends nothing once the send was deferred', function (): void {
+    makeSubscription($this->list);
+    app(StartCampaign::class)->handle(makeCampaign($this->list));
+
+    $send = Send::query()
+        ->sole();
+    $send->forceFill([
+        'status' => SendStatus::Deferred,
+        'attempts' => 1,
+        'next_attempt_at' => now()->addMinutes(15),
+    ])->save();
+
+    SendCampaignMessage::dispatchSync($send->id, 0);
+
+    expect(sentMessages())->toHaveCount(0)
+        ->and($send->fresh()->attempts)->toBe(1)
+        ->and($send->fresh()->status)->toBe(SendStatus::Deferred);
+});
+
+test('retrying failed sends leaves sends that were already handed over alone', function (): void {
+    makeSubscription($this->list, 'een@example.org');
+    makeSubscription($this->list, 'twee@example.org');
+    $campaign = makeCampaign($this->list);
+    app(StartCampaign::class)->handle($campaign);
+
+    Send::query()
+        ->where('email', 'een@example.org')
+        ->update([
+            'status' => SendStatus::Failed,
+        ]);
+    Send::query()
+        ->where('email', 'twee@example.org')
+        ->update([
+            'status' => SendStatus::Failed,
+            'handed_over_at' => now(),
+        ]);
+
+    expect(app(ChangeCampaignStatus::class)->retryFailed($campaign))->toBe(1)
+        ->and(Send::query()
+            ->where('email', 'twee@example.org')
+            ->sole()->status)->toBe(SendStatus::Failed);
+});
+
+test('the daily cap starts at midnight in the mailing time zone', function (): void {
+    $this->list->update([
+        'daily_cap' => 1,
+    ]);
+    $limits = app(SendingLimits::class);
+    $lateEvening = CarbonImmutable::parse('2026-11-02 22:30:00');
+
+    expect($limits->claim($this->list, 'een@example.org', $lateEvening))->toBeTrue()
+        ->and($limits->claim($this->list, 'twee@example.org', $lateEvening->addMinutes(20)))->toBeFalse()
+        ->and($limits->claim($this->list, 'drie@example.org', $lateEvening->addMinutes(40)))->toBeTrue();
+});
+
+test('interrupted and skipped sends are explained in the send table', function (): void {
+    makeSubscription($this->list);
+    $campaign = makeCampaign($this->list);
+    app(StartCampaign::class)->handle($campaign);
+
+    Send::query()
+        ->update([
+            'status' => SendStatus::Failed,
+            'last_response' => Dispatcher::INTERRUPTED,
+        ]);
+
+    $this->actingWithPermissions([MailingPermission::CampaignsEdit->value]);
+
+    $rows = $this->get(route('mailing.campaigns.show', $campaign), [
+        'X-Inertia' => 'true',
+    ])->json('props.sends.data');
+
+    expect(collect($rows)->pluck('last_response')->all())->toBe([
+        __('mailing::campaigns.responses.interrupted'),
+    ]);
 });
