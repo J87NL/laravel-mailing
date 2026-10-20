@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace J87NL\Mailing\Jobs;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -20,6 +21,7 @@ use J87NL\Mailing\Models\Send;
 use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Sending\Dispatcher;
 use J87NL\Mailing\Sending\RetrySchedule;
+use J87NL\Mailing\Sending\SendingLimits;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mime\Email;
 use Throwable;
@@ -42,7 +44,7 @@ class SendCampaignMessage implements ShouldQueue
         $this->onQueue((string) config('mailing.sending.queue', 'mailing'));
     }
 
-    public function handle(DriverRegistry $drivers, RetrySchedule $retries, ListHeaders $listHeaders): void
+    public function handle(DriverRegistry $drivers, RetrySchedule $retries, ListHeaders $listHeaders, SendingLimits $limits): void
     {
         $send = Send::query()
             ->with([
@@ -51,11 +53,13 @@ class SendCampaignMessage implements ShouldQueue
             ])
             ->find($this->sendId);
 
-        if (is_null($send) || $send->campaign->status !== CampaignStatus::Sending) {
+        if (is_null($send)) {
             return;
         }
 
-        if (! is_null($this->notAfter) && now()->getTimestamp() >= $this->notAfter) {
+        if ($send->campaign->status !== CampaignStatus::Sending || (! is_null($this->notAfter) && now()->getTimestamp() >= $this->notAfter)) {
+            $this->releaseSlot($send, $limits);
+
             return;
         }
 
@@ -113,6 +117,15 @@ class SendCampaignMessage implements ShouldQueue
             'handed_over_at' => now(),
             'last_response' => null,
         ]);
+    }
+
+    private function releaseSlot(Send $send, SendingLimits $limits): void
+    {
+        if (is_null($this->notAfter)) {
+            return;
+        }
+
+        $limits->release($send->campaign->mailingList, $send->email, CarbonImmutable::createFromTimestamp($this->notAfter - 60, (string) config('app.timezone')));
     }
 
     private function failedTransport(Send $send, TransportExceptionInterface $exception, RetrySchedule $retries): void

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -364,12 +365,20 @@ test('the link check follows safe redirects and only warns about links that do n
     $dns->a['intern.rommelmarkt.test'] = [
         '10.0.0.5',
     ];
+    $dns->a['traag.example'] = [
+        '93.184.215.22',
+    ];
 
     Http::swap(new Factory);
     Http::preventStrayRequests();
     Http::fake([
-        'https://kort.example/naar-site' => Http::response('', 301, ['Location' => 'https://rommelmarkt.test/data']),
-        'https://kort.example/naar-binnen' => Http::response('', 302, ['Location' => 'https://intern.rommelmarkt.test/beheer']),
+        'https://kort.example/naar-site' => Http::response('', 301, [
+            'Location' => 'https://rommelmarkt.test/data',
+        ]),
+        'https://kort.example/naar-binnen' => Http::response('', 302, [
+            'Location' => 'https://intern.rommelmarkt.test/beheer',
+        ]),
+        'https://traag.example/*' => fn () => throw new ConnectionException('Timed out'),
         'https://afgeschermd.example/*' => Http::response('', 403),
         'https://rommelmarkt.test/*' => Http::response('', 200),
     ]);
@@ -380,6 +389,8 @@ test('the link check follows safe redirects and only warns about links that do n
 
     expect(preflightStatuses($campaign('https://kort.example/naar-site'))['links'])->toBe(PreflightItem::OK)
         ->and(preflightStatuses($campaign('https://afgeschermd.example/pagina'))['links'])->toBe(PreflightItem::WARNING)
+        ->and(preflightStatuses($campaign('https://traag.example/pagina'))['links'])->toBe(PreflightItem::WARNING)
+        ->and(preflightStatuses($campaign('https://kort.example:8443/pagina'))['links'])->toBe(PreflightItem::ERROR)
         ->and(preflightStatuses($campaign('https://kort.example/naar-binnen'))['links'])->toBe(PreflightItem::ERROR);
 
     Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'intern.rommelmarkt.test'));

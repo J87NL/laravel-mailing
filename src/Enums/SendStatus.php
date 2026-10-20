@@ -21,8 +21,8 @@ enum SendStatus: string
     {
         return match ($this) {
             self::Bounced, self::Complained => 5,
-            self::Failed => 4,
-            self::Delivered => 3,
+            self::Delivered => 4,
+            self::Failed => 3,
             self::Deferred => 2,
             self::HandedOver => 1,
             self::Queued, self::Sending, self::Skipped, self::Cancelled => 0,

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Testing\TestResponse;
+use J87NL\Mailing\Actions\ChangeCampaignStatus;
 use J87NL\Mailing\Actions\StartCampaign;
 use J87NL\Mailing\Enums\BounceType;
 use J87NL\Mailing\Enums\SendStatus;
@@ -158,4 +159,18 @@ test('a late delivery report never moves a bounced send back', function (): void
 
     expect($this->send->fresh()->status)->toBe(SendStatus::Bounced)
         ->and($this->send->fresh()->delivered_at)->toBeNull();
+});
+
+test('a delivery report after an interrupted send marks it delivered so it is never retried', function (): void {
+    $this->send->forceFill([
+        'status' => SendStatus::Failed,
+        'handed_over_at' => null,
+        'last_response' => 'interrupted',
+    ])->save();
+
+    $delivered = lettermintPayload('message.delivered', $this->send);
+    postLettermint($delivered, lettermintHeaders($delivered))->assertOk();
+
+    expect($this->send->fresh()->status)->toBe(SendStatus::Delivered)
+        ->and(app(ChangeCampaignStatus::class)->retryFailed($this->send->campaign))->toBe(0);
 });

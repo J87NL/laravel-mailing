@@ -16,6 +16,7 @@ use J87NL\Mailing\Enums\SuppressionReason;
 use J87NL\Mailing\Jobs\SendCampaignMessage;
 use J87NL\Mailing\MailingPermission;
 use J87NL\Mailing\Models\BounceEvent;
+use J87NL\Mailing\Models\RateCounter;
 use J87NL\Mailing\Models\Send;
 use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Sending\Dispatcher;
@@ -412,15 +413,17 @@ test('a transport error without an SMTP code fails the send as interrupted inste
     makeSubscription($this->list);
     app(StartCampaign::class)->handle(makeCampaign($this->list));
 
-    runDispatcher();
+    try {
+        runDispatcher();
+    } finally {
+        FailingTransport::$code = 450;
+    }
 
     $send = Send::query()
         ->sole();
 
     expect($send->status)->toBe(SendStatus::Failed)
         ->and($send->last_response)->toBe(Dispatcher::INTERRUPTED);
-
-    FailingTransport::$code = 450;
 });
 
 test('failed sends of a cancelled campaign are never retried', function (): void {
@@ -474,4 +477,36 @@ test('erasing an address also deletes its send and bounce records', function ():
         ->count())->toBe(0)
         ->and(BounceEvent::query()
             ->count())->toBe(0);
+});
+
+test('a job that waited too long gives its daily slot back, so a stalled worker never uses up the daily cap', function (): void {
+    Queue::fake();
+
+    $this->list->update([
+        'throttle_per_minute' => 2,
+        'daily_cap' => 4,
+    ]);
+
+    foreach (range(1, 2) as $number) {
+        makeSubscription($this->list, sprintf('lid%d@example.org', $number));
+    }
+
+    app(StartCampaign::class)->handle(makeCampaign($this->list));
+
+    $start = CarbonImmutable::parse('2026-11-02 10:00:00');
+
+    foreach (range(0, 1) as $minute) {
+        $this->travelTo($start->addMinutes($minute));
+        runDispatcher($start->addMinutes($minute));
+    }
+
+    $this->travelTo($start->addMinutes(5));
+    Queue::pushed(SendCampaignMessage::class)->each(fn (SendCampaignMessage $job) => app()->call([$job, 'handle']));
+
+    expect(sentMessages())->toHaveCount(0)
+        ->and(Send::query()
+            ->where('status', SendStatus::Queued)->count())->toBe(2)
+        ->and(RateCounter::query()
+            ->where('key', sprintf('list:%d:day', $this->list->id))
+            ->value('hits'))->toBe(0);
 });

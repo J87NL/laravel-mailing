@@ -16,6 +16,29 @@ class SendingLimits
 {
     public function claim(MailingList $list, string $email, CarbonImmutable $now): bool
     {
+        try {
+            return $this->claimAll($this->limits($list, $email, $now));
+        } catch (UniqueConstraintViolationException) {
+            return false;
+        }
+    }
+
+    public function release(MailingList $list, string $email, CarbonImmutable $claimedAt): void
+    {
+        foreach ($this->limits($list, $email, $claimedAt) as [$key, $window]) {
+            RateCounter::query()
+                ->where('key', $key)
+                ->where('window_starts_at', $window)
+                ->where('hits', '>', 0)
+                ->decrement('hits');
+        }
+    }
+
+    /**
+     * @return list<array{0: string, 1: CarbonImmutable, 2: int}>
+     */
+    private function limits(MailingList $list, string $email, CarbonImmutable $now): array
+    {
         $limits = [
             [
                 sprintf('list:%d:minute', $list->id),
@@ -43,11 +66,7 @@ class SendingLimits
             ];
         }
 
-        try {
-            return $this->claimAll($limits);
-        } catch (UniqueConstraintViolationException) {
-            return false;
-        }
+        return $limits;
     }
 
     /**

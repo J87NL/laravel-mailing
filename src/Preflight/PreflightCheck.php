@@ -9,6 +9,7 @@ use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use J87NL\Mailing\Contracts\DnsResolver;
+use J87NL\Mailing\Contracts\HtmlSanitizer;
 use J87NL\Mailing\Contracts\SpamScorer;
 use J87NL\Mailing\Drivers\DriverRegistry;
 use J87NL\Mailing\Mail\CampaignMail;
@@ -29,12 +30,17 @@ class PreflightCheck
 
     private const int REQUEST_TIMEOUT = 5;
 
+    private const int UNREACHABLE = 0;
+
+    private const string SAFE_URL = '#^https://[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?(?::443)?(?:[/?\#][^\s\\\\]*)?$#i';
+
     public function __construct(
         private readonly DnsResolver $dns,
         private readonly SpamScorer $spamScorer,
         private readonly DriverRegistry $drivers,
         private readonly ListSender $sender,
         private readonly RawMessageRenderer $renderer,
+        private readonly HtmlSanitizer $sanitizer,
     ) {}
 
     /**
@@ -271,7 +277,7 @@ class PreflightCheck
 
     private function links(Campaign $campaign): PreflightItem
     {
-        preg_match_all('#<a\b[^>]*href=(["\'])(.*?)\1#i', $campaign->body_html, $matches);
+        preg_match_all('#<a\b[^>]*href=(["\'])(.*?)\1#i', $this->sanitizer->sanitize($campaign->body_html), $matches);
 
         $urls = array_values(array_unique(array_map(
             fn (string $url): string => html_entity_decode($url, ENT_QUOTES | ENT_HTML5),
@@ -324,7 +330,7 @@ class PreflightCheck
 
     private function text(Campaign $campaign): PreflightItem
     {
-        $visible = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($campaign->body_html), ENT_QUOTES | ENT_HTML5)));
+        $visible = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($this->sanitizer->sanitize($campaign->body_html)), ENT_QUOTES | ENT_HTML5)));
 
         if (mb_strlen($visible) < self::MIN_TEXT_LENGTH || trim($campaign->body_text) === '') {
             return $this->item('text', PreflightItem::ERROR, 'text.missing');
@@ -338,14 +344,20 @@ class PreflightCheck
         $status = null;
 
         for ($hop = 0; $hop <= self::MAX_REDIRECTS; $hop++) {
-            if (! str_starts_with($url, 'https://')) {
+            if (preg_match(self::SAFE_URL, $url) !== 1) {
                 return $status;
             }
 
-            $response = $this->head($url, $deadline);
+            $address = $this->publicAddress((string) parse_url($url, PHP_URL_HOST));
+
+            if (is_null($address)) {
+                return null;
+            }
+
+            $response = $this->head($url, $address, $deadline);
 
             if (is_null($response)) {
-                return null;
+                return self::UNREACHABLE;
             }
 
             $status = $response->status();
@@ -361,19 +373,12 @@ class PreflightCheck
         return $status;
     }
 
-    private function head(string $url, float $deadline): ?ClientResponse
+    private function head(string $url, string $address, float $deadline): ?ClientResponse
     {
-        $host = parse_url($url, PHP_URL_HOST);
-        $port = parse_url($url, PHP_URL_PORT) ?? 443;
+        $host = (string) parse_url($url, PHP_URL_HOST);
         $remaining = $deadline - microtime(true);
 
-        if (! is_string($host) || $host === '' || $remaining <= 0) {
-            return null;
-        }
-
-        $address = $this->publicAddress($host);
-
-        if (is_null($address)) {
+        if ($remaining <= 0) {
             return null;
         }
 
@@ -381,9 +386,10 @@ class PreflightCheck
             ->timeout(max(1, (int) min(self::REQUEST_TIMEOUT, ceil($remaining))))
             ->withoutRedirecting()
             ->withOptions([
+                'stream' => true,
                 'curl' => [
                     CURLOPT_RESOLVE => [
-                        sprintf('%s:%d:%s', $host, $port, $address),
+                        sprintf('%s:443:%s', $host, $address),
                     ],
                 ],
             ]);
@@ -421,6 +427,11 @@ class PreflightCheck
         }
 
         $path = (string) parse_url($base, PHP_URL_PATH);
+
+        if (str_starts_with($location, '?') || str_starts_with($location, '#')) {
+            return sprintf('%s%s%s', $origin, $path === '' ? '/' : $path, $location);
+        }
+
         $directory = str_contains($path, '/') ? substr($path, 0, (int) strrpos($path, '/') + 1) : '/';
 
         return sprintf('%s%s%s', $origin, $directory, $location);

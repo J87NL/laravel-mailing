@@ -51,22 +51,22 @@ class ProcessBounces extends Command
 
     private function applyOnce(MailboxMessage $message, DsnReport $report, Send $send, ApplyBounce $applyBounce, ApplyDeliveryEvent $applyDeliveryEvent): bool
     {
-        try {
-            DB::transaction(function () use ($message, $report, $send, $applyBounce, $applyDeliveryEvent): void {
-                WebhookEvent::query()
+        return DB::transaction(function () use ($message, $report, $send, $applyBounce, $applyDeliveryEvent): bool {
+            try {
+                DB::transaction(fn (): WebhookEvent => WebhookEvent::query()
                     ->create([
                         'driver' => self::DSN_DRIVER,
                         'event_id' => hash('sha256', $message->raw),
                         'event' => self::DSN_DRIVER,
-                    ]);
+                    ]));
+            } catch (UniqueConstraintViolationException) {
+                return false;
+            }
 
-                $this->apply($report, $send, $message->id, $applyBounce, $applyDeliveryEvent);
-            });
-        } catch (UniqueConstraintViolationException) {
-            return false;
-        }
+            $this->apply($report, $send, $message->id, $applyBounce, $applyDeliveryEvent);
 
-        return true;
+            return true;
+        });
     }
 
     private function apply(DsnReport $report, Send $send, string $messageId, ApplyBounce $applyBounce, ApplyDeliveryEvent $applyDeliveryEvent): void
