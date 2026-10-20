@@ -64,7 +64,7 @@ final readonly class SignupForm
     {
         $query = config('mailing.signup.success_query');
 
-        return is_string($query) && $query !== '' ? $query : 'subscribed';
+        return is_string($query) && $query !== '' ? $query : 'aangemeld';
     }
 
     public static function isLocalPath(?string $path): bool

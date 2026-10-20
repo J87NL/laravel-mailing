@@ -34,6 +34,7 @@ return [
         'invalid_email' => 'Line :line: not a valid email address.',
         'too_many_rows' => 'The file has more than :max rows; only the first :max were processed.',
         'row_failed' => 'Line :line could not be processed.',
+        'mail_failed' => 'Line :line was stored, but its confirmation mail could not be sent. Import the file again to send that mail.',
         'no_lists' => 'Create a mailing list first.',
     ],
     'flash' => [

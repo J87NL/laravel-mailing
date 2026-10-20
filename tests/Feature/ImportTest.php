@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use J87NL\Mailing\Actions\SendConfirmation;
@@ -159,7 +160,7 @@ test('import confirmations use their own wording and are spread over time', func
         ]));
 });
 
-test('an import keeps going after a failing row and still mails the rows before and after it', function (): void {
+test('an import keeps going when a confirmation mail fails and a re-import sends it after all', function (): void {
     $this->app->bind(SendConfirmation::class, fn (): SendConfirmation => new class extends SendConfirmation
     {
         public function handle(Subscription $subscription, bool $imported = false, int $delayMinutes = 0): void
@@ -172,9 +173,11 @@ test('an import keeps going after a failing row and still mails the rows before 
         }
     });
 
+    $csv = sprintf("email,name\na@example.org,%s\nkapot@example.org,K\nb@example.org,B\n", str_repeat('x', 300));
+
     $this->post(route('mailing.imports.store'), [
         'list_id' => (string) $this->list->id,
-        'file' => csvUpload(sprintf("email,name\na@example.org,%s\nkapot@example.org,K\nb@example.org,B\n", str_repeat('x', 300))),
+        'file' => csvUpload($csv),
         'consent_source' => 'Intekenlijst markt mei',
     ])->assertRedirect(route('mailing.imports.index'));
 
@@ -182,14 +185,31 @@ test('an import keeps going after a failing row and still mails the rows before 
 
     $import = MailingImport::query()
         ->sole();
+    $stranded = Subscription::query()
+        ->whereHas('subscriber', fn (Builder $query): Builder => $query->where('email', 'kapot@example.org'))
+        ->sole();
 
     expect($import)
-        ->imported->toBe(2)
+        ->imported->toBe(3)
         ->confirmations_sent->toBe(2)
         ->and($import->errors)->toBe([
-            __('mailing::imports.errors.row_failed', ['line' => 3]),
+            __('mailing::imports.errors.mail_failed', ['line' => 3]),
         ])
+        ->and($stranded->status)->toBe(SubscriptionStatus::Pending)
+        ->and($stranded->confirmation_sent_at)->toBeNull()
         ->and(mb_strlen((string) Subscriber::query()
             ->where('email', 'a@example.org')
             ->value('name')))->toBe(120);
+
+    $this->app->forgetInstance(SendConfirmation::class);
+    $this->app->offsetUnset(SendConfirmation::class);
+
+    $this->post(route('mailing.imports.store'), [
+        'list_id' => (string) $this->list->id,
+        'file' => csvUpload($csv),
+        'consent_source' => 'Intekenlijst markt mei',
+    ])->assertRedirect(route('mailing.imports.index'));
+
+    Mail::assertQueued(ConfirmSubscriptionMail::class, fn (ConfirmSubscriptionMail $mail): bool => $mail->hasTo('kapot@example.org'));
+    Mail::assertQueued(ConfirmSubscriptionMail::class, 3);
 });

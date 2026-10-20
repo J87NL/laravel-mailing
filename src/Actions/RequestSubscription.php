@@ -40,6 +40,7 @@ class RequestSubscription
             $name = trim((string) $name);
 
             $subscription = Subscription::query()
+                ->lockForUpdate()
                 ->firstOrNew([
                     'subscriber_id' => $subscriber->id,
                     'list_id' => $list->id,
@@ -61,6 +62,7 @@ class RequestSubscription
                 'consent_ip' => $ip,
                 'consent_source' => $source,
                 'requested_name' => $name === '' ? null : $name,
+                'confirmation_sent_at' => now(),
                 'confirmed_at' => null,
                 'unsubscribed_at' => null,
             ])->save();

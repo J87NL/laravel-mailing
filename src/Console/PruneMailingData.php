@@ -43,7 +43,7 @@ class PruneMailingData extends Command
             ->where('updated_at', '<', now()->subDays((int) config('mailing.retention.unconfirmed_days', 30)))
             ->delete();
 
-        $this->info(sprintf('Pruned %d unconfirmed and %d ended subscriptions, and %d subscribers.', $unconfirmed, $ended, $subscribers));
+        $this->info(sprintf('Pruned or ended %d unconfirmed and pruned %d ended subscriptions, and %d subscribers.', $unconfirmed, $ended, $subscribers));
 
         return self::SUCCESS;
     }
@@ -66,12 +66,7 @@ class PruneMailingData extends Command
                         ->first();
 
                     if (is_null($earlier)) {
-                        ConsentRecord::query()
-                            ->where('subscriber_id', $subscription->subscriber_id)
-                            ->where('list_id', $subscription->list_id)
-                            ->delete();
-
-                        $subscription->delete();
+                        $this->deleteWithRecords($subscription);
 
                         return;
                     }
@@ -121,19 +116,22 @@ class PruneMailingData extends Command
 
         $query->chunkById(200, function (Collection $subscriptions) use (&$count): void {
             foreach ($subscriptions as $subscription) {
-                DB::transaction(function () use ($subscription): void {
-                    ConsentRecord::query()
-                        ->where('subscriber_id', $subscription->subscriber_id)
-                        ->where('list_id', $subscription->list_id)
-                        ->delete();
-
-                    $subscription->delete();
-                });
+                DB::transaction(fn () => $this->deleteWithRecords($subscription));
 
                 $count++;
             }
         });
 
         return $count;
+    }
+
+    private function deleteWithRecords(Subscription $subscription): void
+    {
+        ConsentRecord::query()
+            ->where('subscriber_id', $subscription->subscriber_id)
+            ->where('list_id', $subscription->list_id)
+            ->delete();
+
+        $subscription->delete();
     }
 }

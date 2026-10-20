@@ -56,8 +56,6 @@ class ListController extends Controller
         $list->fill([
             ...$this->listAttributes($validated),
             'key' => (string) $validated['key'],
-        ]);
-        $list->fill([
             'mailer' => (string) config('mailing.list_defaults.mailer'),
             'throttle_per_minute' => (int) config('mailing.list_defaults.throttle_per_minute', 20),
             'daily_cap' => config('mailing.list_defaults.daily_cap'),

@@ -70,67 +70,101 @@ class ImportSubscribers
 
         $rows = $this->rows($path);
 
-        foreach ($rows as $line => $row) {
-            $email = EmailAddress::normalize($row['email']);
+        try {
+            foreach ($rows as $line => $row) {
+                $error = $this->importLine($import, $list, $line, $row, $seen, $source, $hasDocumentedConsent ? $consentNote : null, $actorId, $perMinute);
 
-            if ($email === '' && $row['name'] === '') {
-                continue;
-            }
-
-            if (! $this->isValidEmail($email)) {
-                $errors[] = __('mailing::imports.errors.invalid_email', [
-                    'line' => $line,
-                ]);
-                $import->skipped++;
-
-                continue;
-            }
-
-            if (isset($seen[$email]) || Suppression::covers($email)) {
-                $import->skipped++;
-
-                continue;
-            }
-
-            $seen[$email] = true;
-
-            try {
-                $subscription = $this->importRow($list, $email, mb_substr($row['name'], 0, self::MAX_NAME_LENGTH), $source, $hasDocumentedConsent ? $consentNote : null, $actorId);
-
-                if (! is_null($subscription) && $subscription->status === SubscriptionStatus::Pending) {
-                    $this->sendConfirmation->handle($subscription, true, intdiv((int) $import->confirmations_sent, $perMinute));
-                    $import->confirmations_sent++;
+                if (! is_null($error)) {
+                    $errors[] = $error;
                 }
-            } catch (Throwable $e) {
-                report($e);
-
-                $errors[] = __('mailing::imports.errors.row_failed', [
-                    'line' => $line,
-                ]);
-                $import->skipped++;
-
-                continue;
             }
 
-            if (is_null($subscription)) {
-                $import->skipped++;
-
-                continue;
+            if ($rows->getReturn()) {
+                array_unshift($errors, __('mailing::imports.errors.too_many_rows', [
+                    'max' => (int) config('mailing.import.max_rows', 5000),
+                ]));
             }
-
-            $import->imported++;
+        } finally {
+            $import->errors = $errors === [] ? null : array_slice($errors, 0, self::MAX_REPORTED_ERRORS);
+            $import->save();
         }
-
-        if ($rows->getReturn()) {
-            array_unshift($errors, __('mailing::imports.errors.too_many_rows', [
-                'max' => (int) config('mailing.import.max_rows', 5000),
-            ]));
-        }
-
-        $import->errors = $errors === [] ? null : array_slice($errors, 0, self::MAX_REPORTED_ERRORS);
-        $import->save();
 
         return $import;
+    }
+
+    /**
+     * @param  array{email: string, name: string}  $row
+     * @param  array<string, bool>  $seen
+     */
+    private function importLine(
+        MailingImport $import,
+        MailingList $list,
+        int $line,
+        array $row,
+        array &$seen,
+        string $source,
+        ?string $consentNote,
+        ?int $actorId,
+        int $perMinute,
+    ): ?string {
+        $email = EmailAddress::normalize($row['email']);
+
+        if ($email === '' && $row['name'] === '') {
+            return null;
+        }
+
+        if (! $this->isValidEmail($email)) {
+            $import->skipped++;
+
+            return __('mailing::imports.errors.invalid_email', [
+                'line' => $line,
+            ]);
+        }
+
+        if (isset($seen[$email]) || Suppression::covers($email)) {
+            $import->skipped++;
+
+            return null;
+        }
+
+        $seen[$email] = true;
+
+        try {
+            $subscription = $this->importRow($list, $email, mb_substr($row['name'], 0, self::MAX_NAME_LENGTH), $source, $consentNote, $actorId);
+        } catch (Throwable $e) {
+            report($e);
+            $import->skipped++;
+
+            return __('mailing::imports.errors.row_failed', [
+                'line' => $line,
+            ]);
+        }
+
+        if (is_null($subscription)) {
+            $import->skipped++;
+
+            return null;
+        }
+
+        $import->imported++;
+
+        if ($subscription->status !== SubscriptionStatus::Pending) {
+            return null;
+        }
+
+        try {
+            $this->sendConfirmation->handle($subscription, true, intdiv((int) $import->confirmations_sent, $perMinute));
+        } catch (Throwable $e) {
+            report($e);
+
+            return __('mailing::imports.errors.mail_failed', [
+                'line' => $line,
+            ]);
+        }
+
+        $import->confirmations_sent++;
+
+        return null;
     }
 
     private function isValidEmail(string $email): bool
@@ -166,7 +200,7 @@ class ImportSubscribers
                 ]);
 
             if ($subscription->exists) {
-                return null;
+                return $subscription->status === SubscriptionStatus::Pending && is_null($subscription->confirmation_sent_at) ? $subscription : null;
             }
 
             $confirmed = ! is_null($consentNote);

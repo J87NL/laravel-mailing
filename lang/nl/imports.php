@@ -34,6 +34,7 @@ return [
         'invalid_email' => 'Regel :line: geen geldig e-mailadres.',
         'too_many_rows' => 'Het bestand heeft meer dan :max regels; alleen de eerste :max zijn verwerkt.',
         'row_failed' => 'Regel :line kon niet worden verwerkt.',
+        'mail_failed' => 'Regel :line is opgeslagen, maar de bevestigingsmail kon niet worden verstuurd. Importeer het bestand opnieuw om die mail alsnog te sturen.',
         'no_lists' => 'Maak eerst een mailinglijst aan.',
     ],
     'flash' => [
