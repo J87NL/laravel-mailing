@@ -157,6 +157,10 @@ class ImportSubscribers
         } catch (Throwable $e) {
             report($e);
 
+            $subscription->forceFill([
+                'confirmation_sent_at' => null,
+            ])->save();
+
             return __('mailing::imports.errors.mail_failed', [
                 'line' => $line,
             ]);
@@ -194,13 +198,14 @@ class ImportSubscribers
             }
 
             $subscription = Subscription::query()
+                ->lockForUpdate()
                 ->firstOrNew([
                     'subscriber_id' => $subscriber->id,
                     'list_id' => $list->id,
                 ]);
 
             if ($subscription->exists) {
-                return $subscription->status === SubscriptionStatus::Pending && is_null($subscription->confirmation_sent_at) ? $subscription : null;
+                return $this->claimStranded($subscription);
             }
 
             $confirmed = ! is_null($consentNote);
@@ -210,6 +215,7 @@ class ImportSubscribers
                 'consent_source' => $source,
                 'consent_ip' => null,
                 'consent_at' => $confirmed ? now() : null,
+                'confirmation_sent_at' => $confirmed ? null : now(),
                 'confirmed_at' => $confirmed ? now() : null,
             ])->save();
 
@@ -217,6 +223,19 @@ class ImportSubscribers
 
             return $subscription;
         });
+    }
+
+    private function claimStranded(Subscription $subscription): ?Subscription
+    {
+        if ($subscription->status !== SubscriptionStatus::Pending || ! is_null($subscription->confirmation_sent_at)) {
+            return null;
+        }
+
+        $subscription->forceFill([
+            'confirmation_sent_at' => now(),
+        ])->save();
+
+        return $subscription;
     }
 
     /**

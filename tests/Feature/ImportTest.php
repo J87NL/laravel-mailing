@@ -213,3 +213,18 @@ test('an import keeps going when a confirmation mail fails and a re-import sends
     Mail::assertQueued(ConfirmSubscriptionMail::class, fn (ConfirmSubscriptionMail $mail): bool => $mail->hasTo('kapot@example.org'));
     Mail::assertQueued(ConfirmSubscriptionMail::class, 3);
 });
+
+test('a pending row whose confirmation is already under way is never mailed twice by a second import', function (): void {
+    $subscription = makeSubscription($this->list, 'onderweg@example.org', SubscriptionStatus::Pending);
+    $subscription->forceFill([
+        'confirmation_sent_at' => now(),
+    ])->save();
+
+    $this->post(route('mailing.imports.store'), [
+        'list_id' => (string) $this->list->id,
+        'file' => csvUpload("email\nonderweg@example.org\n"),
+        'consent_source' => 'Intekenlijst markt mei',
+    ])->assertRedirect(route('mailing.imports.index'));
+
+    Mail::assertNothingQueued();
+});
