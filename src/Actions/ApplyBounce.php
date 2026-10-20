@@ -22,7 +22,7 @@ class ApplyBounce
     {
         BounceEvent::query()
             ->create([
-                'email' => $email,
+                'email' => EmailAddress::normalize($email),
                 'send_id' => $send?->id,
                 'type' => $type,
                 'source' => $source,

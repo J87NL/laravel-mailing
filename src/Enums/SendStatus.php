@@ -20,7 +20,8 @@ enum SendStatus: string
     public function rank(): int
     {
         return match ($this) {
-            self::Bounced, self::Complained => 5,
+            self::Complained => 6,
+            self::Bounced => 5,
             self::Delivered => 4,
             self::Failed => 3,
             self::Deferred => 2,

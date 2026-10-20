@@ -174,3 +174,13 @@ test('a delivery report after an interrupted send marks it delivered so it is ne
     expect($this->send->fresh()->status)->toBe(SendStatus::Delivered)
         ->and(app(ChangeCampaignStatus::class)->retryFailed($this->send->campaign))->toBe(0);
 });
+
+test('a bounce report never overwrites a spam complaint', function (): void {
+    $complaint = lettermintPayload('message.spam_complaint', $this->send);
+    postLettermint($complaint, lettermintHeaders($complaint))->assertOk();
+
+    $bounce = lettermintPayload('message.hard_bounced', $this->send);
+    postLettermint($bounce, lettermintHeaders($bounce))->assertOk();
+
+    expect($this->send->fresh()->status)->toBe(SendStatus::Complained);
+});

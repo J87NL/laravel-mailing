@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use J87NL\Mailing\Actions\ApplyBounce;
 use J87NL\Mailing\Actions\StartCampaign;
 use J87NL\Mailing\Contracts\MailboxReader;
 use J87NL\Mailing\Enums\BounceType;
@@ -195,4 +196,15 @@ test('a report that is read again after a failed archive is applied once', funct
         ->and(Suppression::query()
             ->count())->toBe(0)
         ->and(app(MailboxReader::class)->unprocessed())->toBe([]);
+});
+
+test('soft bounces count across spellings of the same address', function (): void {
+    foreach (['LID@Example.org', 'lid@EXAMPLE.org', 'Lid@example.ORG'] as $spelling) {
+        app(ApplyBounce::class)->handle($spelling, sentCampaign(), BounceType::Soft, 'webhook: lettermint', 'Mailbox full');
+    }
+
+    expect(BounceEvent::query()
+        ->pluck('email')->unique()->all())->toBe(['lid@example.org'])
+        ->and(Suppression::query()
+            ->sole()->reason)->toBe(SuppressionReason::SoftBounces);
 });

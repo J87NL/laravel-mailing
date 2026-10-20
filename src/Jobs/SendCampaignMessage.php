@@ -82,6 +82,8 @@ class SendCampaignMessage implements ShouldQueue
             ]);
 
         if ($claimed !== 1) {
+            $this->releaseSlot($send, $limits);
+
             return;
         }
 

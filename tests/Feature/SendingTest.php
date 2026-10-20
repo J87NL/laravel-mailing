@@ -510,3 +510,25 @@ test('a job that waited too long gives its daily slot back, so a stalled worker 
             ->where('key', sprintf('list:%d:day', $this->list->id))
             ->value('hits'))->toBe(0);
 });
+
+test('a job that loses the claim gives its throttle slot back', function (): void {
+    makeSubscription($this->list);
+    app(StartCampaign::class)->handle(makeCampaign($this->list));
+
+    $send = Send::query()
+        ->sole();
+    $now = CarbonImmutable::parse('2026-11-02 10:00:00');
+    $this->travelTo($now);
+
+    $limits = app(SendingLimits::class);
+    $limits->claim($this->list, $send->email, $now);
+    $limits->claim($this->list, $send->email, $now);
+
+    SendCampaignMessage::dispatchSync($send->id, 0, $now->addMinute()->getTimestamp());
+    SendCampaignMessage::dispatchSync($send->id, 0, $now->addMinute()->getTimestamp());
+
+    expect(sentMessages())->toHaveCount(1)
+        ->and(RateCounter::query()
+            ->where('key', sprintf('list:%d:minute', $this->list->id))
+            ->value('hits'))->toBe(1);
+});

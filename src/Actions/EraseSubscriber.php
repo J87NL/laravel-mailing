@@ -30,7 +30,7 @@ class EraseSubscriber
             }
 
             Send::query()
-                ->where('email', $subscriber->email)
+                ->whereIn('subscription_id', $subscriber->subscriptions()->pluck('id'))
                 ->delete();
 
             BounceEvent::query()
