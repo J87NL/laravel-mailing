@@ -16,7 +16,7 @@
         <p class="mailing-page__text">{{ __(sprintf('mailing::confirm.%s.text', $state), ['list' => $listName ?? '']) }}</p>
 
         @if ($state === 'confirm')
-            <form class="mailing-page__form" method="post" action="{{ $action }}" {{ \J87NL\Mailing\Http\Controllers\Public\ConfirmationScriptController::FORM_ATTRIBUTE }}>
+            <form class="mailing-page__form" method="post" action="{{ $action }}" {{ $autoSubmitAttribute }}>
                 <p class="mailing-signup__actions">
                     <button type="submit" class="mailing-signup__button">{{ __('mailing::confirm.confirm.button') }}</button>
                 </p>

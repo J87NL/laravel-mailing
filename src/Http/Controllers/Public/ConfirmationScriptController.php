@@ -13,11 +13,9 @@ class ConfirmationScriptController extends Controller
 
     public function __invoke(): Response
     {
-        $script = sprintf("var form = document.querySelector('form[%s]');\nif (form) {\n    form.submit();\n}\n", self::FORM_ATTRIBUTE);
-
-        return response($script, 200, [
+        return response((string) file_get_contents(__DIR__.'/../../../../resources/scripts/confirm.js'), 200, [
             'Content-Type' => 'text/javascript; charset=utf-8',
-            'Cache-Control' => 'public, max-age=86400',
+            'Cache-Control' => 'public, max-age=3600',
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }
