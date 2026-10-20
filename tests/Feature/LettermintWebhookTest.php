@@ -134,3 +134,28 @@ test('a repeated webhook delivery is applied once', function (): void {
     expect(BounceEvent::query()
         ->count())->toBe(1);
 });
+
+test('provider retries of one deferred message never suppress the address', function (): void {
+    foreach (range(1, 3) as $retry) {
+        $body = str_replace('evt_soft', sprintf('evt_soft_%d', $retry), lettermintPayload('message.soft_bounced', $this->send));
+
+        postLettermint($body, lettermintHeaders($body))->assertJson(['applied' => 1]);
+    }
+
+    expect(BounceEvent::query()
+        ->count())->toBe(3)
+        ->and(Suppression::query()
+            ->count())->toBe(0)
+        ->and($this->subscription->fresh()->status)->toBe(SubscriptionStatus::Subscribed);
+});
+
+test('a late delivery report never moves a bounced send back', function (): void {
+    $bounce = lettermintPayload('message.hard_bounced', $this->send);
+    postLettermint($bounce, lettermintHeaders($bounce))->assertOk();
+
+    $delivered = lettermintPayload('message.delivered', $this->send);
+    postLettermint($delivered, lettermintHeaders($delivered))->assertOk();
+
+    expect($this->send->fresh()->status)->toBe(SendStatus::Bounced)
+        ->and($this->send->fresh()->delivered_at)->toBeNull();
+});

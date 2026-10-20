@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use J87NL\Mailing\Actions\ChangeCampaignStatus;
+use J87NL\Mailing\Actions\EraseSubscriber;
 use J87NL\Mailing\Actions\StartCampaign;
+use J87NL\Mailing\Enums\BounceType;
 use J87NL\Mailing\Enums\CampaignStatus;
 use J87NL\Mailing\Enums\SendStatus;
 use J87NL\Mailing\Enums\SubscriptionStatus;
 use J87NL\Mailing\Enums\SuppressionReason;
 use J87NL\Mailing\Jobs\SendCampaignMessage;
 use J87NL\Mailing\MailingPermission;
+use J87NL\Mailing\Models\BounceEvent;
 use J87NL\Mailing\Models\Send;
 use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Sending\Dispatcher;
@@ -359,4 +363,115 @@ test('interrupted and skipped sends are explained in the send table', function (
     expect(collect($rows)->pluck('last_response')->all())->toBe([
         __('mailing::campaigns.responses.interrupted'),
     ]);
+});
+
+test('jobs that waited for a stalled worker send nothing, so the throttle holds when it comes back', function (): void {
+    Queue::fake();
+
+    $this->list->update([
+        'throttle_per_minute' => 2,
+    ]);
+
+    foreach (range(1, 6) as $number) {
+        makeSubscription($this->list, sprintf('lid%d@example.org', $number));
+    }
+
+    app(StartCampaign::class)->handle(makeCampaign($this->list));
+
+    $start = CarbonImmutable::parse('2026-11-02 10:00:00');
+
+    foreach (range(0, 4) as $minute) {
+        $this->travelTo($start->addMinutes($minute));
+        runDispatcher($start->addMinutes($minute));
+    }
+
+    $jobs = Queue::pushed(SendCampaignMessage::class);
+
+    expect($jobs)->toHaveCount(10);
+
+    $jobs->each(fn (SendCampaignMessage $job) => app()->call([$job, 'handle']));
+
+    $handedOver = Send::query()
+        ->where('status', SendStatus::HandedOver)
+        ->count();
+
+    expect(sentMessages())->toHaveCount(2)
+        ->and($handedOver)->toBe(2);
+});
+
+test('a transport error without an SMTP code fails the send as interrupted instead of resending it', function (): void {
+    FailingTransport::$code = 0;
+    Mail::extend('failing', fn (): FailingTransport => new FailingTransport);
+    config()->set('mail.mailers.failing', [
+        'transport' => 'failing',
+    ]);
+
+    $this->list->update([
+        'mailer' => 'failing',
+    ]);
+    makeSubscription($this->list);
+    app(StartCampaign::class)->handle(makeCampaign($this->list));
+
+    runDispatcher();
+
+    $send = Send::query()
+        ->sole();
+
+    expect($send->status)->toBe(SendStatus::Failed)
+        ->and($send->last_response)->toBe(Dispatcher::INTERRUPTED);
+
+    FailingTransport::$code = 450;
+});
+
+test('failed sends of a cancelled campaign are never retried', function (): void {
+    makeSubscription($this->list);
+    $campaign = makeCampaign($this->list);
+    app(StartCampaign::class)->handle($campaign);
+
+    Send::query()
+        ->update([
+            'status' => SendStatus::Failed,
+        ]);
+    app(ChangeCampaignStatus::class)->cancel($campaign);
+
+    expect(app(ChangeCampaignStatus::class)->retryFailed($campaign))->toBe(0)
+        ->and(Send::query()
+            ->sole()->status)->toBe(SendStatus::Failed);
+});
+
+test('the body is sanitized again when the mail is rendered', function (): void {
+    makeSubscription($this->list);
+    app(StartCampaign::class)->handle(makeCampaign($this->list, [
+        'body_html' => '<p onclick="steal()">Hallo</p><script>alert(1)</script>',
+    ]));
+
+    runDispatcher();
+
+    $html = (string) sentMessages()->sole()->getOriginalMessage()->getHtmlBody();
+
+    expect($html)->toContain('Hallo')
+        ->and($html)->not->toContain('<script')
+        ->and($html)->not->toContain('onclick');
+});
+
+test('erasing an address also deletes its send and bounce records', function (): void {
+    $subscription = makeSubscription($this->list);
+    app(StartCampaign::class)->handle(makeCampaign($this->list));
+    runDispatcher();
+
+    BounceEvent::query()
+        ->create([
+            'email' => 'lid@example.org',
+            'send_id' => Send::query()
+                ->value('id'),
+            'type' => BounceType::Soft,
+            'source' => 'dsn',
+        ]);
+
+    app(EraseSubscriber::class)->handle($subscription->subscriber, false);
+
+    expect(Send::query()
+        ->count())->toBe(0)
+        ->and(BounceEvent::query()
+            ->count())->toBe(0);
 });

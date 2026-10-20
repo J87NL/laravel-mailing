@@ -69,10 +69,7 @@ class ApplyDeliveryEvent
             return;
         }
 
-        $send->forceFill([
-            ...$attributes,
-            'status' => $status,
-        ])->save();
+        $send->advanceTo($status, $attributes);
     }
 
     private function send(DeliveryEvent $event): ?Send

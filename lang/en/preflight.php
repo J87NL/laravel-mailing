@@ -47,6 +47,7 @@ return [
         ],
         'links' => [
             'broken' => 'These links do not work or are not https: :urls',
+            'unverified' => 'These links did not answer with a plain 200 or could not be checked in time. Please check them yourself: :urls',
             'ok' => ':count links checked.',
         ],
         'text' => [

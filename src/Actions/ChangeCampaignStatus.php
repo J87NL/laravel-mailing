@@ -74,6 +74,15 @@ class ChangeCampaignStatus
     public function retryFailed(Campaign $campaign): int
     {
         return DB::transaction(function () use ($campaign): int {
+            $locked = Campaign::query()
+                ->whereKey($campaign->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (is_null($locked) || ! $locked->status->allowsRetry()) {
+                return 0;
+            }
+
             $retried = Send::query()
                 ->where('campaign_id', $campaign->id)
                 ->where('status', SendStatus::Failed)

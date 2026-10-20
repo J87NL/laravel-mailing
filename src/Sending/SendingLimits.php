@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace J87NL\Mailing\Sending;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use J87NL\Mailing\Models\MailingList;
 use J87NL\Mailing\Models\RateCounter;
@@ -42,6 +43,18 @@ class SendingLimits
             ];
         }
 
+        try {
+            return $this->claimAll($limits);
+        } catch (UniqueConstraintViolationException) {
+            return false;
+        }
+    }
+
+    /**
+     * @param  list<array{0: string, 1: CarbonImmutable, 2: int}>  $limits
+     */
+    private function claimAll(array $limits): bool
+    {
         return DB::transaction(function () use ($limits): bool {
             $counters = [];
 

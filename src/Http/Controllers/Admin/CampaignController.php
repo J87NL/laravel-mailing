@@ -31,6 +31,7 @@ use J87NL\Mailing\Preflight\PreflightItem;
 use J87NL\Mailing\Support\MailingTime;
 use J87NL\Mailing\Tables\CampaignTable;
 use J87NL\Mailing\Tables\SendTable;
+use Symfony\Component\Mime\Email;
 use TranquilTools\FormBuilder\FormConfig;
 
 class CampaignController extends Controller
@@ -42,12 +43,6 @@ class CampaignController extends Controller
     private const array UNSTARTED = [
         CampaignStatus::Draft,
         CampaignStatus::Scheduled,
-    ];
-
-    private const array RETRYABLE = [
-        CampaignStatus::Sending,
-        CampaignStatus::Paused,
-        CampaignStatus::Sent,
     ];
 
     private const array CANCELLABLE = [
@@ -243,7 +238,7 @@ class CampaignController extends Controller
         return to_route('mailing.campaigns.show', $campaign);
     }
 
-    public function test(Request $request, Campaign $campaign): RedirectResponse
+    public function test(Request $request, Campaign $campaign, DriverRegistry $drivers): RedirectResponse
     {
         $validated = TestSendForm::make()->validate($request);
         $recipients = array_values(array_filter(array_map('trim', preg_split('/[\s,;]+/', (string) $validated['recipients']) ?: [])));
@@ -288,13 +283,14 @@ class CampaignController extends Controller
         }
 
         $campaign->loadMissing('mailingList');
+        $driver = $drivers->for($campaign->mailingList);
 
         foreach ($recipients as $recipient) {
             RateLimiter::hit($limiterKey, 3600);
 
             Mail::mailer($campaign->mailingList->mailer)
                 ->to($recipient)
-                ->send(new CampaignMail($campaign));
+                ->send((new CampaignMail($campaign))->withSymfonyMessage(fn (Email $message) => $driver->prepareTest($message, $campaign)));
         }
 
         $this->toast(__('mailing::campaigns.flash.test_sent', [
@@ -329,7 +325,7 @@ class CampaignController extends Controller
             $actions[] = $this->action(__('mailing::campaigns.actions.resume'), route('mailing.campaigns.resume', $campaign), 'post', null, $needsSend);
         }
 
-        if (in_array($campaign->status, self::RETRYABLE, true) && $this->hasRetryableSends($campaign)) {
+        if ($campaign->status->allowsRetry() && $this->hasRetryableSends($campaign)) {
             $actions[] = $this->action(__('mailing::campaigns.actions.retry'), route('mailing.campaigns.retry', $campaign), 'post', __('mailing::campaigns.actions.retry_confirm'), $needsSend);
         }
 

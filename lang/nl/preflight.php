@@ -47,6 +47,7 @@ return [
         ],
         'links' => [
             'broken' => 'Deze links werken niet of zijn geen https: :urls',
+            'unverified' => 'Deze links gaven geen nette 200-reactie of zijn niet op tijd gecontroleerd. Kijk ze even zelf na: :urls',
             'ok' => ':count links gecontroleerd.',
         ],
         'text' => [

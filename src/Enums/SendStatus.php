@@ -17,6 +17,29 @@ enum SendStatus: string
     case Skipped = 'skipped';
     case Cancelled = 'cancelled';
 
+    public function rank(): int
+    {
+        return match ($this) {
+            self::Bounced, self::Complained => 5,
+            self::Failed => 4,
+            self::Delivered => 3,
+            self::Deferred => 2,
+            self::HandedOver => 1,
+            self::Queued, self::Sending, self::Skipped, self::Cancelled => 0,
+        };
+    }
+
+    /**
+     * @return list<self>
+     */
+    public function replaces(): array
+    {
+        return array_values(array_filter(
+            self::cases(),
+            fn (self $status): bool => $status->rank() <= $this->rank(),
+        ));
+    }
+
     public function label(): string
     {
         return __(sprintf('mailing::enums.send_status.%s', $this->value));

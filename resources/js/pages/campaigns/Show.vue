@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import Form from '@form-builder/components/Form.vue';
 import type { FormSchema } from '@form-builder/types/form-builder';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePoll } from '@inertiajs/vue3';
 import TableBuilder from '@table-builder/components/TableBuilder.vue';
 import type { TableData } from '@table-builder/types/table-builder';
 import { useBreadcrumbs } from '@mailing/composables/useBreadcrumbs';
@@ -14,6 +14,7 @@ import type {
     MailingPreflightItem,
 } from '@mailing/types';
 import { ui } from '@mailing/ui';
+import { watch } from 'vue';
 
 const props = defineProps<{
     campaign: MailingCampaign;
@@ -30,6 +31,30 @@ const props = defineProps<{
 useBreadcrumbs(() => props.breadcrumbs);
 
 const confirm = useConfirm();
+
+const poll = usePoll(
+    15000,
+    {
+        only: ['campaign', 'counts', 'actions', 'sends'],
+    },
+    {
+        autoStart: false,
+    },
+);
+
+watch(
+    () => props.campaign.status,
+    (status) => {
+        if (status === 'sending') {
+            poll.start();
+
+            return;
+        }
+
+        poll.stop();
+    },
+    { immediate: true },
+);
 
 const errors = useErrors(['campaign', 'recipients']);
 

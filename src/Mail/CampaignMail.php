@@ -9,6 +9,7 @@ use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Mail\Mailables\Headers;
+use J87NL\Mailing\Contracts\HtmlSanitizer;
 use J87NL\Mailing\Html\EmailStyler;
 use J87NL\Mailing\Models\Campaign;
 use J87NL\Mailing\Models\Subscription;
@@ -42,16 +43,15 @@ class CampaignMail extends Mailable
 
         return new Headers(
             messageId: is_null($this->messageId) ? null : trim($this->messageId, '<>'),
-            text: is_null($this->subscription) ? [
-                'List-Id' => $headers->listId($this->campaign->mailingList),
-            ] : $headers->for($this->subscription),
+            text: is_null($this->subscription) ? $headers->forPreview($this->campaign->mailingList) : $headers->for($this->subscription),
         );
     }
 
     public function content(): Content
     {
         $list = $this->campaign->mailingList;
-        $unsubscribeUrl = is_null($this->subscription) ? null : app(ListHeaders::class)->unsubscribeUrl($this->subscription);
+        $headers = app(ListHeaders::class);
+        $unsubscribeUrl = is_null($this->subscription) ? $headers->previewUnsubscribeUrl() : $headers->unsubscribeUrl($this->subscription);
 
         return new Content(
             view: 'mailing::mail.campaign',
@@ -59,7 +59,7 @@ class CampaignMail extends Mailable
             with: [
                 'subject' => $this->campaign->subject,
                 'preheader' => (string) $this->campaign->preheader,
-                'bodyHtml' => app(EmailStyler::class)->inline($this->campaign->body_html),
+                'bodyHtml' => app(EmailStyler::class)->inline(app(HtmlSanitizer::class)->sanitize($this->campaign->body_html)),
                 'bodyText' => $this->campaign->body_text,
                 'listName' => $list->name,
                 'senderName' => app(ListSender::class)->for($list)->label(),

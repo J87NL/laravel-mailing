@@ -18,6 +18,7 @@ use J87NL\Mailing\Mail\CampaignMail;
 use J87NL\Mailing\Mail\ListHeaders;
 use J87NL\Mailing\Models\Send;
 use J87NL\Mailing\Models\Suppression;
+use J87NL\Mailing\Sending\Dispatcher;
 use J87NL\Mailing\Sending\RetrySchedule;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mime\Email;
@@ -36,6 +37,7 @@ class SendCampaignMessage implements ShouldQueue
     public function __construct(
         public readonly int $sendId,
         public readonly int $attempt,
+        public readonly ?int $notAfter = null,
     ) {
         $this->onQueue((string) config('mailing.sending.queue', 'mailing'));
     }
@@ -50,6 +52,10 @@ class SendCampaignMessage implements ShouldQueue
             ->find($this->sendId);
 
         if (is_null($send) || $send->campaign->status !== CampaignStatus::Sending) {
+            return;
+        }
+
+        if (! is_null($this->notAfter) && now()->getTimestamp() >= $this->notAfter) {
             return;
         }
 
@@ -112,7 +118,14 @@ class SendCampaignMessage implements ShouldQueue
     private function failedTransport(Send $send, TransportExceptionInterface $exception, RetrySchedule $retries): void
     {
         $code = (int) $exception->getCode();
-        $temporary = $code === 0 || ($code >= 400 && $code < 500);
+
+        if ($code === 0) {
+            $this->finish($send, SendStatus::Failed, Dispatcher::INTERRUPTED);
+
+            return;
+        }
+
+        $temporary = $code >= 400 && $code < 500;
         $delay = $retries->delayAfter($send->attempts);
 
         if (! $temporary || is_null($delay)) {

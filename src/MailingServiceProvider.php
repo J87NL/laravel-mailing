@@ -76,15 +76,15 @@ class MailingServiceProvider extends ServiceProvider
 
             $schedule->command(DispatchSends::class)
                 ->everyMinute()
-                ->withoutOverlapping();
+                ->withoutOverlapping(5);
 
             $schedule->command(ProcessBounces::class)
                 ->everyFiveMinutes()
-                ->withoutOverlapping();
+                ->withoutOverlapping(10);
 
             $schedule->command(PruneMailingData::class)
                 ->dailyAt('03:15')
-                ->withoutOverlapping();
+                ->withoutOverlapping(60);
         });
 
         $this->publishes([

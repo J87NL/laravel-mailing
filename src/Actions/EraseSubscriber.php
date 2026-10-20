@@ -6,6 +6,8 @@ namespace J87NL\Mailing\Actions;
 
 use Illuminate\Support\Facades\DB;
 use J87NL\Mailing\Enums\SuppressionReason;
+use J87NL\Mailing\Models\BounceEvent;
+use J87NL\Mailing\Models\Send;
 use J87NL\Mailing\Models\Subscriber;
 use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Support\ConsentSource;
@@ -26,6 +28,14 @@ class EraseSubscriber
                         'created_by' => $actorId,
                     ]);
             }
+
+            Send::query()
+                ->where('email', $subscriber->email)
+                ->delete();
+
+            BounceEvent::query()
+                ->where('email', $subscriber->email)
+                ->delete();
 
             $subscriber->delete();
         });

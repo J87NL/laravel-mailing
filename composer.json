@@ -38,7 +38,8 @@
         "pestphp/pest": "^5.0"
     },
     "suggest": {
-        "j87nl/laravel-cms": "Registers the sign-up block in the CMS block registry."
+        "j87nl/laravel-cms": "Registers the sign-up block in the CMS block registry.",
+        "lettermint/lettermint-laravel": "Provides the lettermint mail transport that the lettermint driver sends through."
     },
     "autoload": {
         "psr-4": {

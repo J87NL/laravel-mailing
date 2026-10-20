@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace J87NL\Mailing\Actions;
 
+use Illuminate\Database\Eloquent\Builder;
 use J87NL\Mailing\Enums\BounceType;
 use J87NL\Mailing\Enums\SendStatus;
 use J87NL\Mailing\Enums\SuppressionReason;
 use J87NL\Mailing\Models\BounceEvent;
 use J87NL\Mailing\Models\Send;
+use J87NL\Mailing\Support\EmailAddress;
 
 class ApplyBounce
 {
@@ -27,15 +29,12 @@ class ApplyBounce
                 'diagnostic' => $diagnostic,
             ]);
 
-        if (! is_null($send)) {
-            $send->forceFill([
-                'status' => $type === BounceType::Hard ? SendStatus::Bounced : SendStatus::Deferred,
-                'next_attempt_at' => null,
-                'bounced_at' => now(),
-                'bounce_type' => $type,
-                'bounce_diagnostic' => $diagnostic,
-            ])->save();
-        }
+        $send?->advanceTo($type === BounceType::Hard ? SendStatus::Bounced : SendStatus::Deferred, [
+            'next_attempt_at' => null,
+            'bounced_at' => now(),
+            'bounce_type' => $type,
+            'bounce_diagnostic' => $diagnostic,
+        ]);
 
         if ($type === BounceType::Hard) {
             $this->suppressAddress->handle($email, SuppressionReason::HardBounce, $source, $diagnostic);
@@ -43,22 +42,31 @@ class ApplyBounce
             return;
         }
 
-        $softBounces = BounceEvent::query()
-            ->where('email', $email)
-            ->where('type', BounceType::Soft)
-            ->where('created_at', '>=', now()->subDays((int) config('mailing.bounces.soft_window_days', 30)))
-            ->count();
-
-        if ($softBounces < (int) config('mailing.bounces.soft_limit', 3)) {
+        if ($this->softBouncedMessages($email) < (int) config('mailing.bounces.soft_limit', 3)) {
             return;
         }
 
-        if (! is_null($send)) {
-            $send->forceFill([
-                'status' => SendStatus::Bounced,
-            ])->save();
-        }
+        $send?->advanceTo(SendStatus::Bounced);
 
         $this->suppressAddress->handle($email, SuppressionReason::SoftBounces, $source, $diagnostic);
+    }
+
+    private function softBouncedMessages(string $email): int
+    {
+        $recent = fn (): Builder => BounceEvent::query()
+            ->where('email', EmailAddress::normalize($email))
+            ->where('type', BounceType::Soft)
+            ->where('created_at', '>=', now()->subDays((int) config('mailing.bounces.soft_window_days', 30)));
+
+        $messages = $recent()
+            ->whereNotNull('send_id')
+            ->distinct()
+            ->count('send_id');
+
+        $withoutSend = $recent()
+            ->whereNull('send_id')
+            ->count();
+
+        return $messages + $withoutSend;
     }
 }

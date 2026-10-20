@@ -6,6 +6,8 @@ namespace J87NL\Mailing\Sending;
 
 final class Verp
 {
+    public const int TEST_SEND_ID = 0;
+
     private const int SIGNATURE_LENGTH = 16;
 
     public static function address(int $sendId): ?string

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace J87NL\Mailing\Preflight;
 
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use J87NL\Mailing\Contracts\DnsResolver;
@@ -14,12 +15,19 @@ use J87NL\Mailing\Mail\CampaignMail;
 use J87NL\Mailing\Models\Campaign;
 use J87NL\Mailing\Senders\ListSender;
 use J87NL\Mailing\Support\EmailAddress;
+use Symfony\Component\Mime\Email;
 
 class PreflightCheck
 {
     private const int MIN_TEXT_LENGTH = 20;
 
     private const int CACHE_SECONDS = 600;
+
+    private const int MAX_REDIRECTS = 3;
+
+    private const int CONNECT_TIMEOUT = 3;
+
+    private const int REQUEST_TIMEOUT = 5;
 
     public function __construct(
         private readonly DnsResolver $dns,
@@ -39,7 +47,7 @@ class PreflightCheck
         $domain = EmailAddress::domain($this->sender->for($list)->email);
 
         return [
-            $this->spf($domain, $driver),
+            $this->spf($this->envelopeDomain($domain, $driver), $driver),
             $this->dkim($domain, $driver),
             $this->dmarc($domain),
             $this->alignment($domain, $driver),
@@ -84,6 +92,17 @@ class PreflightCheck
         }
 
         return false;
+    }
+
+    private function envelopeDomain(string $fromDomain, string $driver): string
+    {
+        $bounceDomain = config('mailing.bounces.domain');
+
+        if ($driver !== 'postfix' || ! is_string($bounceDomain) || $bounceDomain === '') {
+            return $fromDomain;
+        }
+
+        return $bounceDomain;
     }
 
     private function spf(string $domain, string $driver): PreflightItem
@@ -228,7 +247,9 @@ class PreflightCheck
 
     private function spamScore(Campaign $campaign): PreflightItem
     {
-        $raw = $this->renderer->render(new CampaignMail($campaign), 'preflight@example.org');
+        $driver = $this->drivers->for($campaign->mailingList);
+        $mail = (new CampaignMail($campaign))->withSymfonyMessage(fn (Email $message) => $driver->prepareTest($message, $campaign));
+        $raw = $this->renderer->render($mail, 'preflight@example.org');
         $score = $this->spamScorer->score($raw);
 
         if (is_null($score)) {
@@ -256,27 +277,43 @@ class PreflightCheck
             fn (string $url): string => html_entity_decode($url, ENT_QUOTES | ENT_HTML5),
             $matches[2],
         )));
+        $deadline = microtime(true) + (float) config('mailing.preflight.link_budget_seconds', 20);
         $broken = [];
+        $unverified = [];
 
         foreach ($urls as $url) {
             if (str_starts_with($url, 'mailto:') || str_starts_with($url, 'tel:')) {
                 continue;
             }
 
-            if (! str_starts_with($url, 'https://')) {
+            if (microtime(true) >= $deadline) {
+                $unverified[] = $url;
+
+                continue;
+            }
+
+            $status = $this->finalStatus($url, $deadline);
+
+            if (is_null($status)) {
                 $broken[] = $url;
 
                 continue;
             }
 
-            if (! $this->answers($url)) {
-                $broken[] = $url;
+            if ($status !== 200) {
+                $unverified[] = $url;
             }
         }
 
         if ($broken !== []) {
             return $this->item('links', PreflightItem::ERROR, 'links.broken', [
                 'urls' => implode(', ', $broken),
+            ]);
+        }
+
+        if ($unverified !== []) {
+            return $this->item('links', PreflightItem::WARNING, 'links.unverified', [
+                'urls' => implode(', ', $unverified),
             ]);
         }
 
@@ -296,22 +333,52 @@ class PreflightCheck
         return $this->item('text', PreflightItem::OK, 'text.ok');
     }
 
-    private function answers(string $url): bool
+    private function finalStatus(string $url, float $deadline): ?int
+    {
+        $status = null;
+
+        for ($hop = 0; $hop <= self::MAX_REDIRECTS; $hop++) {
+            if (! str_starts_with($url, 'https://')) {
+                return $status;
+            }
+
+            $response = $this->head($url, $deadline);
+
+            if (is_null($response)) {
+                return null;
+            }
+
+            $status = $response->status();
+            $location = $response->header('Location');
+
+            if (! $response->redirect() || $location === '') {
+                return $status;
+            }
+
+            $url = $this->absolute($url, $location);
+        }
+
+        return $status;
+    }
+
+    private function head(string $url, float $deadline): ?ClientResponse
     {
         $host = parse_url($url, PHP_URL_HOST);
         $port = parse_url($url, PHP_URL_PORT) ?? 443;
+        $remaining = $deadline - microtime(true);
 
-        if (! is_string($host) || $host === '') {
-            return false;
+        if (! is_string($host) || $host === '' || $remaining <= 0) {
+            return null;
         }
 
         $address = $this->publicAddress($host);
 
         if (is_null($address)) {
-            return false;
+            return null;
         }
 
-        $request = Http::timeout(8)
+        $request = Http::connectTimeout(self::CONNECT_TIMEOUT)
+            ->timeout(max(1, (int) min(self::REQUEST_TIMEOUT, ceil($remaining))))
             ->withoutRedirecting()
             ->withOptions([
                 'curl' => [
@@ -328,10 +395,35 @@ class PreflightCheck
                 $response = $request->get($url);
             }
         } catch (ConnectionException) {
-            return false;
+            return null;
         }
 
-        return $response->status() === 200;
+        return $response;
+    }
+
+    private function absolute(string $base, string $location): string
+    {
+        if (preg_match('#^[a-z][a-z0-9+.-]*://#i', $location) === 1) {
+            return $location;
+        }
+
+        $scheme = (string) parse_url($base, PHP_URL_SCHEME);
+        $host = (string) parse_url($base, PHP_URL_HOST);
+        $port = parse_url($base, PHP_URL_PORT);
+        $origin = is_null($port) ? sprintf('%s://%s', $scheme, $host) : sprintf('%s://%s:%d', $scheme, $host, $port);
+
+        if (str_starts_with($location, '//')) {
+            return sprintf('%s:%s', $scheme, $location);
+        }
+
+        if (str_starts_with($location, '/')) {
+            return sprintf('%s%s', $origin, $location);
+        }
+
+        $path = (string) parse_url($base, PHP_URL_PATH);
+        $directory = str_contains($path, '/') ? substr($path, 0, (int) strrpos($path, '/') + 1) : '/';
+
+        return sprintf('%s%s%s', $origin, $directory, $location);
     }
 
     private function publicAddress(string $host): ?string

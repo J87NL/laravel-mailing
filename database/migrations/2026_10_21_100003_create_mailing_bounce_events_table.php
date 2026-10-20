@@ -36,7 +36,7 @@ return new class extends Migration
         Schema::create('mailing_rate_counters', function (Blueprint $table): void {
             $table->id();
             $table->string('key');
-            $table->timestamp('window_starts_at');
+            $table->dateTime('window_starts_at');
             $table->unsignedInteger('hits')->default(0);
 
             $table->unique([

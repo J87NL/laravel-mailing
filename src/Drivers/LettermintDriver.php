@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use J87NL\Mailing\Contracts\MailingDriver;
 use J87NL\Mailing\Delivery\DeliveryEvent;
 use J87NL\Mailing\Enums\DeliveryEventType;
+use J87NL\Mailing\Models\Campaign;
 use J87NL\Mailing\Models\Send;
 use Symfony\Component\Mailer\Header\MetadataHeader;
 use Symfony\Component\Mailer\Header\TagHeader;
@@ -49,6 +50,11 @@ class LettermintDriver implements MailingDriver
         $headers->add(new MetadataHeader('send_id', (string) $send->id));
         $headers->add(new TagHeader(sprintf('campaign-%d', $send->campaign_id)));
         $headers->addTextHeader('Idempotency-Key', sprintf('mailing-send-%d', $send->id));
+    }
+
+    public function prepareTest(Email $message, Campaign $campaign): void
+    {
+        $message->getHeaders()->add(new TagHeader(sprintf('campaign-%d-test', $campaign->id)));
     }
 
     public function hasWebhooks(): bool

@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Client\Factory;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use J87NL\Mailing\Contracts\DnsResolver;
 use J87NL\Mailing\Contracts\SpamScorer;
@@ -10,13 +12,16 @@ use J87NL\Mailing\Enums\CampaignStatus;
 use J87NL\Mailing\Enums\SuppressionReason;
 use J87NL\Mailing\Forms\ScheduleForm;
 use J87NL\Mailing\Html\HtmlToText;
+use J87NL\Mailing\Mail\ListHeaders;
 use J87NL\Mailing\MailingPermission;
 use J87NL\Mailing\Models\Campaign;
 use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Preflight\PreflightCheck;
 use J87NL\Mailing\Preflight\PreflightItem;
+use J87NL\Mailing\Sending\Verp;
 use J87NL\Mailing\Tests\Fakes\FakeDnsResolver;
 use J87NL\Mailing\Tests\Fakes\FakeSpamScorer;
+use Symfony\Component\Mime\Email;
 
 function healthyDns(): FakeDnsResolver
 {
@@ -304,4 +309,78 @@ test('the schedule is entered and shown in the mailing time zone', function (): 
 
     expect($page->json('props.campaign.scheduledAt'))->toBe(CarbonImmutable::parse('2026-11-02 10:00:00')->isoFormat('D MMMM YYYY HH:mm'))
         ->and((new ScheduleForm)->fields()[0]->getTimezone())->toBe('Europe/Amsterdam');
+});
+
+test('a test send is the real message with List headers, the unsubscribe footer and the VERP Return-Path', function (): void {
+    $campaign = makeCampaign($this->list);
+
+    $this->actingWithPermissions([
+        MailingPermission::CampaignsEdit->value,
+        MailingPermission::CampaignsSend->value,
+    ]);
+
+    $this->post(route('mailing.campaigns.test', $campaign), [
+        'recipients' => 'test@example.org',
+    ])->assertSessionHasNoErrors();
+
+    $sent = sentMessages()->sole();
+    $message = $sent->getOriginalMessage();
+
+    expect($message)->toBeInstanceOf(Email::class);
+
+    $headers = $message->getHeaders();
+    $unsubscribeUrl = route('mailing.unsubscribe.show', [
+        'token' => ListHeaders::PREVIEW_TOKEN,
+    ]);
+
+    expect($headers->get('List-Unsubscribe')?->getBodyAsString())->toBe(sprintf('<%s>', $unsubscribeUrl))
+        ->and($headers->get('List-Unsubscribe-Post')?->getBodyAsString())->toBe('List-Unsubscribe=One-Click')
+        ->and($headers->get('List-Id')?->getBodyAsString())->toContain('nieuws.rommelmarkt.test')
+        ->and($sent->getEnvelope()->getSender()->getAddress())->toBe(Verp::address(Verp::TEST_SEND_ID))
+        ->and($message->getHtmlBody())->toContain(e($unsubscribeUrl))
+        ->and($message->getTextBody())->toContain($unsubscribeUrl);
+});
+
+test('SPF is checked on the bounce domain that Postfix uses as envelope sender', function (): void {
+    config()->set('mailing.bounces.domain', 'bounces.rommelmarkt.test');
+    healthyDns();
+
+    $items = collect(app(PreflightCheck::class)->run(makeCampaign($this->list)))
+        ->keyBy('key');
+
+    expect($items['spf']->status)->toBe(PreflightItem::ERROR)
+        ->and($items['spf']->message)->toContain('bounces.rommelmarkt.test')
+        ->and($items['alignment']->status)->toBe(PreflightItem::OK);
+});
+
+test('the link check follows safe redirects and only warns about links that do not answer 200', function (): void {
+    $dns = healthyDns();
+    $dns->a['kort.example'] = [
+        '93.184.215.20',
+    ];
+    $dns->a['afgeschermd.example'] = [
+        '93.184.215.21',
+    ];
+    $dns->a['intern.rommelmarkt.test'] = [
+        '10.0.0.5',
+    ];
+
+    Http::swap(new Factory);
+    Http::preventStrayRequests();
+    Http::fake([
+        'https://kort.example/naar-site' => Http::response('', 301, ['Location' => 'https://rommelmarkt.test/data']),
+        'https://kort.example/naar-binnen' => Http::response('', 302, ['Location' => 'https://intern.rommelmarkt.test/beheer']),
+        'https://afgeschermd.example/*' => Http::response('', 403),
+        'https://rommelmarkt.test/*' => Http::response('', 200),
+    ]);
+
+    $campaign = fn (string $href): Campaign => makeCampaign($this->list, [
+        'body_html' => sprintf('<p>Kijk op <a href="%s">deze pagina</a> voor alles over de markt.</p>', $href),
+    ]);
+
+    expect(preflightStatuses($campaign('https://kort.example/naar-site'))['links'])->toBe(PreflightItem::OK)
+        ->and(preflightStatuses($campaign('https://afgeschermd.example/pagina'))['links'])->toBe(PreflightItem::WARNING)
+        ->and(preflightStatuses($campaign('https://kort.example/naar-binnen'))['links'])->toBe(PreflightItem::ERROR);
+
+    Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'intern.rommelmarkt.test'));
 });

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace J87NL\Mailing\Console;
 
 use Illuminate\Console\Command;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 use J87NL\Mailing\Actions\ApplyBounce;
 use J87NL\Mailing\Actions\ApplyDeliveryEvent;
 use J87NL\Mailing\Bounces\DsnParser;
@@ -13,11 +15,15 @@ use J87NL\Mailing\Contracts\MailboxReader;
 use J87NL\Mailing\Delivery\DeliveryEvent;
 use J87NL\Mailing\Enums\BounceType;
 use J87NL\Mailing\Enums\DeliveryEventType;
+use J87NL\Mailing\Mailbox\MailboxMessage;
 use J87NL\Mailing\Models\Send;
+use J87NL\Mailing\Models\WebhookEvent;
 use J87NL\Mailing\Support\ConsentSource;
 
 class ProcessBounces extends Command
 {
+    private const string DSN_DRIVER = 'dsn';
+
     protected $signature = 'mailing:process-bounces';
 
     protected $description = 'Read the bounce mailbox and apply the delivery status notifications';
@@ -31,8 +37,7 @@ class ProcessBounces extends Command
 
             $send = is_null($report) ? null : $this->send($report->verpSendId, $report->originalMessageId);
 
-            if (! is_null($report) && ! is_null($send)) {
-                $this->apply($report, $send, $message->id, $applyBounce, $applyDeliveryEvent);
+            if (! is_null($report) && ! is_null($send) && $this->applyOnce($message, $report, $send, $applyBounce, $applyDeliveryEvent)) {
                 $processed++;
             }
 
@@ -42,6 +47,26 @@ class ProcessBounces extends Command
         $this->info(sprintf('Processed %d delivery status notifications.', $processed));
 
         return self::SUCCESS;
+    }
+
+    private function applyOnce(MailboxMessage $message, DsnReport $report, Send $send, ApplyBounce $applyBounce, ApplyDeliveryEvent $applyDeliveryEvent): bool
+    {
+        try {
+            DB::transaction(function () use ($message, $report, $send, $applyBounce, $applyDeliveryEvent): void {
+                WebhookEvent::query()
+                    ->create([
+                        'driver' => self::DSN_DRIVER,
+                        'event_id' => hash('sha256', $message->raw),
+                        'event' => self::DSN_DRIVER,
+                    ]);
+
+                $this->apply($report, $send, $message->id, $applyBounce, $applyDeliveryEvent);
+            });
+        } catch (UniqueConstraintViolationException) {
+            return false;
+        }
+
+        return true;
     }
 
     private function apply(DsnReport $report, Send $send, string $messageId, ApplyBounce $applyBounce, ApplyDeliveryEvent $applyDeliveryEvent): void

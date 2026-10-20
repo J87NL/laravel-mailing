@@ -123,6 +123,7 @@ return [
             'password' => env('MAILING_RSPAMD_PASSWORD'),
         ],
         'spam_threshold' => 5.0,
+        'link_budget_seconds' => 20,
         'sending_ips' => array_values(array_filter(explode(',', (string) env('MAILING_SENDING_IPS', '')))),
         'blocklists' => [
             'zen.spamhaus.org',

@@ -62,6 +62,25 @@ class Send extends Model
     }
 
     /**
+     * @param  array<string, mixed>  $attributes
+     */
+    public function advanceTo(SendStatus $status, array $attributes = []): bool
+    {
+        $updated = self::query()
+            ->whereKey($this->id)
+            ->whereIn('status', $status->replaces())
+            ->update([
+                ...$attributes,
+                'status' => $status,
+                'updated_at' => now(),
+            ]);
+
+        $this->refresh();
+
+        return $updated === 1;
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array

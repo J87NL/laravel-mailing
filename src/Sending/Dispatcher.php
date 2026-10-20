@@ -17,8 +17,6 @@ class Dispatcher
 {
     public const string INTERRUPTED = 'interrupted';
 
-    private const int LEASE_MINUTES = 10;
-
     public function __construct(
         private readonly SendingLimits $limits,
         private readonly StartCampaign $startCampaign,
@@ -90,6 +88,7 @@ class Dispatcher
             ->get();
 
         $dispatched = 0;
+        $leaseEnds = $now->startOfMinute()->addMinute();
 
         foreach ($candidates as $send) {
             if (! $this->limits->claim($campaign->mailingList, $send->email, $now)) {
@@ -97,10 +96,10 @@ class Dispatcher
             }
 
             $send->forceFill([
-                'next_attempt_at' => $now->addMinutes(self::LEASE_MINUTES),
+                'next_attempt_at' => $leaseEnds,
             ])->save();
 
-            SendCampaignMessage::dispatch($send->id, $send->attempts);
+            SendCampaignMessage::dispatch($send->id, $send->attempts, $leaseEnds->getTimestamp());
             $dispatched++;
         }
 

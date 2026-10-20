@@ -179,3 +179,20 @@ test('mail that is not a delivery status notification is archived without effect
         ->count())->toBe(0)
         ->and(app(MailboxReader::class)->unprocessed())->toBe([]);
 });
+
+test('a report that is read again after a failed archive is applied once', function (): void {
+    $send = sentCampaign();
+    $raw = dsn('soft-bounce', $send);
+
+    deliverToBounceMailbox($raw);
+    deliverToBounceMailbox($raw);
+    deliverToBounceMailbox($raw);
+
+    $this->artisan('mailing:process-bounces')->assertSuccessful();
+
+    expect(BounceEvent::query()
+        ->count())->toBe(1)
+        ->and(Suppression::query()
+            ->count())->toBe(0)
+        ->and(app(MailboxReader::class)->unprocessed())->toBe([]);
+});
