@@ -1,0 +1,74 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Support\Facades\Gate;
+use J87NL\Mailing\MailingPermission;
+use J87NL\Mailing\Navigation\MailingNavigation;
+
+test('the package adds one main menu item for the whole mailing module', function (): void {
+    $items = collect(config('j87nl.navigation'))
+        ->filter(fn (array $item): bool => str_starts_with($item['key'], 'mailing'))
+        ->values();
+
+    expect($items)->toHaveCount(1)
+        ->and($items[0]['route'])->toBe('mailing.home')
+        ->and($items[0]['permission'])->toBe(MailingNavigation::ABILITY);
+});
+
+test('a user who may only manage lists is led to the lists and sees only the lists in the submenu', function (): void {
+    $this->actingWithPermissions([MailingPermission::Lists->value]);
+
+    expect(Gate::allows(MailingNavigation::ABILITY))->toBeTrue();
+
+    $this->get(route('mailing.home'))->assertRedirect(route('mailing.lists.index'));
+
+    $navigation = $this->get(route('mailing.lists.index'), [
+        'X-Inertia' => 'true',
+    ])
+        ->assertOk()
+        ->json('props.mailingNavigation');
+
+    expect($navigation)->toBe([
+        [
+            'key' => 'lists',
+            'title' => __('mailing::navigation.lists'),
+            'href' => route('mailing.lists.index', absolute: false),
+            'active' => true,
+        ],
+    ]);
+});
+
+test('the submenu holds every permitted section and marks the current one on its detail pages', function (): void {
+    $this->actingWithPermissions([
+        MailingPermission::CampaignsEdit->value,
+        MailingPermission::Subscribers->value,
+    ]);
+    $subscription = makeSubscription(makeList());
+
+    $this->get(route('mailing.home'))->assertRedirect(route('mailing.campaigns.index'));
+
+    $navigation = $this->get(route('mailing.subscribers.show', $subscription->subscriber_id), [
+        'X-Inertia' => 'true',
+    ])
+        ->assertOk()
+        ->json('props.mailingNavigation');
+
+    expect(collect($navigation)->pluck('key')->all())->toBe([
+        'campaigns',
+        'subscribers',
+        'suppressions',
+        'imports',
+    ])
+        ->and(collect($navigation)->where('active', true)->pluck('key')->all())->toBe([
+            'subscribers',
+        ]);
+});
+
+test('a user without any mailing permission gets no mailing menu item', function (): void {
+    $this->actingWithPermissions([]);
+
+    expect(Gate::allows(MailingNavigation::ABILITY))->toBeFalse();
+
+    $this->get(route('mailing.home'))->assertForbidden();
+});

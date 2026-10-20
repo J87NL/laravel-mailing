@@ -78,7 +78,7 @@ LETTERMINT_WEBHOOK_SECRET=
 
 ## Permissions and navigation
 
-Permissions are pushed into the config key named by `mailing.permissions_config_key`: `mailing.lists`, `mailing.subscribers`, `mailing.settings` (the transport of a list), `mailing.campaigns.edit` and `mailing.campaigns.send`. Menu items are pushed into `mailing.navigation_config_key`.
+Permissions are pushed into the config key named by `mailing.permissions_config_key`: `mailing.lists`, `mailing.subscribers`, `mailing.settings` (the transport of a list), `mailing.campaigns.edit` and `mailing.campaigns.send`. One menu item, `mailing`, is pushed into `mailing.navigation_config_key`. It points at `mailing.home`, which redirects to the first section the user may open, and it is guarded by the `mailing.access` ability, which passes when the user has any mailing permission. The item also carries `'active' => 'mailing.*'`, a route pattern a host sidebar can use to keep it marked on every mailing page. Inside the module, every page shares a submenu with Campaigns, Lists, Subscribers, Suppressions and Imports, each shown only to users with its permission. The pages receive it as the shared Inertia prop `mailingNavigation`.
 
 ## Testing
 
