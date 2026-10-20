@@ -9,6 +9,7 @@ use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Mail\Mailables\Headers;
+use Illuminate\Support\Str;
 use J87NL\Mailing\Contracts\HtmlSanitizer;
 use J87NL\Mailing\Html\EmailStyler;
 use J87NL\Mailing\Models\Campaign;
@@ -42,7 +43,7 @@ class CampaignMail extends Mailable
         $headers = app(ListHeaders::class);
 
         return new Headers(
-            messageId: is_null($this->messageId) ? null : trim($this->messageId, '<>'),
+            messageId: is_null($this->messageId) ? sprintf('preview.%s@%s', Str::lower(Str::random(16)), $headers->domain()) : trim($this->messageId, '<>'),
             text: is_null($this->subscription) ? $headers->forPreview($this->campaign->mailingList) : $headers->for($this->subscription),
         );
     }

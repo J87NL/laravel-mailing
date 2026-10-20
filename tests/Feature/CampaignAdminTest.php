@@ -342,6 +342,28 @@ test('a test send is the real message with List headers, the unsubscribe footer 
         ->and($message->getTextBody())->toContain($unsubscribeUrl);
 });
 
+test('a test send avoids the invisible-text and hex Message-ID spam signals', function (): void {
+    $campaign = makeCampaign($this->list);
+
+    $this->actingWithPermissions([
+        MailingPermission::CampaignsEdit->value,
+        MailingPermission::CampaignsSend->value,
+    ]);
+
+    $this->post(route('mailing.campaigns.test', $campaign), [
+        'recipients' => 'test@example.org',
+    ])->assertSessionHasNoErrors();
+
+    $message = sentMessages()->sole()->getOriginalMessage();
+    $messageId = (string) $message->getHeaders()->get('Message-ID')?->getBodyAsString();
+
+    expect($message->getHtmlBody())->toContain('De data voor volgend jaar')
+        ->not->toContain('font-size:1px')
+        ->not->toContain('opacity:0')
+        ->and($messageId)->toMatch('/^<preview\.[a-z0-9]{16}@/')
+        ->not->toMatch('/^<[0-9a-f]{32}@/');
+});
+
 test('SPF is checked on the bounce domain that Postfix uses as envelope sender', function (): void {
     config()->set('mailing.bounces.domain', 'bounces.rommelmarkt.test');
     healthyDns();

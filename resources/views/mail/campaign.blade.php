@@ -8,7 +8,7 @@
 </head>
 <body style="margin:0;padding:0;background-color:#f3f4f6;-webkit-text-size-adjust:100%;">
     @if ($preheader !== '')
-        <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f3f4f6;opacity:0;">{{ $preheader }}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
+        <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">{{ $preheader }}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
     @endif
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3f4f6;">
         <tr>
