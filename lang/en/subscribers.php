@@ -36,7 +36,17 @@ return [
         'unsubscribe' => 'Unsubscribe',
         'unsubscribe_confirm' => 'Are you sure you want to unsubscribe this address from this list?',
     ],
+    'erase' => [
+        'action' => 'Erase data',
+        'title' => 'Erase :email',
+        'description' => 'Deletes this address with all its subscriptions and its whole history. This cannot be undone.',
+        'keep_suppressed' => 'Keep the address on the suppression list',
+        'keep_suppressed_help' => 'The address then never gets a mailing again, even when someone signs it up again. Only the email address is kept.',
+        'submit' => 'Erase permanently',
+        'suppression_note' => 'Data erased on request',
+    ],
     'flash' => [
         'unsubscribed' => 'The address has been unsubscribed.',
+        'erased' => 'The address and its data have been erased.',
     ],
 ];

@@ -22,5 +22,6 @@ return [
         'imported' => 'Geïmporteerd',
         'unsubscribed' => 'Afgemeld',
         'suppressed' => 'Op blokkeerlijst gezet',
+        'unsuppressed' => 'Van blokkeerlijst gehaald',
     ],
 ];

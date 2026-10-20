@@ -32,6 +32,7 @@ final class SuppressionTable extends AbstractTable
 
     public function configure(TableBuilder $table): void
     {
+        $canLift = (bool) request()->user()?->can(MailingPermission::Settings->value);
         $reasons = [];
 
         foreach (SuppressionReason::cases() as $reason) {
@@ -56,6 +57,7 @@ final class SuppressionTable extends AbstractTable
             method: 'delete',
             confirm: __('mailing::suppressions.actions.delete_confirm'),
             variant: 'destructive',
+            disabled: $canLift ? false : (string) __('mailing::suppressions.errors.needs_settings'),
             key: 'delete',
         );
     }

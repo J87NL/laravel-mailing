@@ -36,7 +36,17 @@ return [
         'unsubscribe' => 'Afmelden',
         'unsubscribe_confirm' => 'Weet je zeker dat je dit adres van deze lijst wilt afmelden?',
     ],
+    'erase' => [
+        'action' => 'Gegevens verwijderen',
+        'title' => ':email verwijderen',
+        'description' => 'Verwijdert dit adres met al zijn aanmeldingen en de hele geschiedenis. Dit kan niet ongedaan worden gemaakt.',
+        'keep_suppressed' => 'Adres op de blokkeerlijst houden',
+        'keep_suppressed_help' => 'Dan krijgt het adres nooit meer een mailing, ook niet als iemand het opnieuw aanmeldt. Alleen het e-mailadres blijft bewaard.',
+        'submit' => 'Definitief verwijderen',
+        'suppression_note' => 'Gegevens verwijderd op verzoek',
+    ],
     'flash' => [
         'unsubscribed' => 'Het adres is afgemeld.',
+        'erased' => 'Het adres en zijn gegevens zijn verwijderd.',
     ],
 ];

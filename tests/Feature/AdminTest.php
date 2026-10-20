@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
+use J87NL\Cms\Cache\PageCache;
 use J87NL\Mailing\Enums\ConsentAction;
 use J87NL\Mailing\Enums\SubscriptionStatus;
 use J87NL\Mailing\Enums\SuppressionReason;
 use J87NL\Mailing\MailingPermission;
 use J87NL\Mailing\Models\ConsentRecord;
 use J87NL\Mailing\Models\MailingList;
+use J87NL\Mailing\Models\Subscriber;
+use J87NL\Mailing\Models\Subscription;
 use J87NL\Mailing\Models\Suppression;
 
 test('every mailing screen needs its permission', function (): void {
@@ -228,7 +231,98 @@ test('a manual suppression unsubscribes the address everywhere and can be lifted
         'email' => 'lid@example.org',
     ])->assertSessionHasErrors('email');
 
+    $actions = $this->get(route('mailing.suppressions.index'), [
+        'X-Inertia' => 'true',
+    ])->json('props.suppressions.rowActions.0');
+
+    expect(collect($actions)->firstWhere('key', 'delete')['disabledReason'] ?? null)->toBe(__('mailing::suppressions.errors.needs_settings'));
+
+    $this->delete(route('mailing.suppressions.destroy', $suppression))->assertForbidden();
+
+    $this->actingWithPermissions([
+        MailingPermission::Subscribers->value,
+        MailingPermission::Settings->value,
+    ]);
+
     $this->delete(route('mailing.suppressions.destroy', $suppression))->assertRedirect(route('mailing.suppressions.index'));
 
-    $this->assertDatabaseCount('mailing_suppressions', 0);
+    $record = ConsentRecord::query()
+        ->latest('id')
+        ->first();
+
+    expect(Suppression::query()
+        ->count())->toBe(0)
+        ->and($record?->action)->toBe(ConsentAction::Unsuppressed)
+        ->and($record?->subscriber_id)->toBe($subscription->subscriber_id)
+        ->and($record?->actor_id)->toBe(1);
+});
+
+test('an admin erases an address with its history and can keep it suppressed', function (): void {
+    $list = makeList();
+    $kept = makeSubscription($list, 'blijft-weg@example.org');
+    $gone = makeSubscription($list, 'helemaal-weg@example.org');
+
+    ConsentRecord::query()
+        ->create([
+            'subscriber_id' => $kept->subscriber_id,
+            'list_id' => $list->id,
+            'action' => ConsentAction::Confirmed,
+        ]);
+
+    $this->actingWithPermissions([]);
+
+    $this->delete(route('mailing.subscribers.destroy', $kept->subscriber_id))->assertForbidden();
+
+    $this->actingWithPermissions([MailingPermission::Subscribers->value]);
+
+    $this->get(route('mailing.subscribers.erase', $kept->subscriber_id), [
+        'X-Inertia' => 'true',
+    ])->assertOk();
+
+    $this->delete(route('mailing.subscribers.destroy', $kept->subscriber_id), [
+        'keep_suppressed' => true,
+    ])->assertRedirect(route('mailing.subscribers.index'));
+
+    $this->delete(route('mailing.subscribers.destroy', $gone->subscriber_id), [
+        'keep_suppressed' => false,
+    ])->assertRedirect(route('mailing.subscribers.index'));
+
+    expect(Subscriber::query()
+        ->count())->toBe(0)
+        ->and(Subscription::query()
+            ->count())->toBe(0)
+        ->and(ConsentRecord::query()
+            ->count())->toBe(0)
+        ->and(Suppression::covers('blijft-weg@example.org'))->toBeTrue()
+        ->and(Suppression::covers('helemaal-weg@example.org'))->toBeFalse();
+});
+
+test('a list key cannot change after creation and list changes flush the page cache', function (): void {
+    $list = makeList();
+    $cache = app(PageCache::class);
+    $version = $cache->version();
+
+    $this->actingWithPermissions([MailingPermission::Lists->value]);
+
+    $this->put(route('mailing.lists.update', $list), [
+        'name' => 'Rommelpost',
+        'key' => 'anders',
+        'is_public' => false,
+    ])->assertRedirect(route('mailing.lists.index'));
+
+    expect($list->fresh()->key)->toBe('nieuws')
+        ->and($cache->version())->toBeGreaterThan($version);
+});
+
+test('creating a list without any configured sender explains what is missing', function (): void {
+    config()->set('mailing.senders', []);
+
+    $this->actingWithPermissions([MailingPermission::Lists->value]);
+
+    $this->post(route('mailing.lists.store'), [
+        'name' => 'Nieuwsbrief',
+        'key' => 'nieuws',
+    ])->assertRedirect(route('mailing.lists.index'))->assertSessionHasErrors('list');
+
+    $this->assertDatabaseCount('mailing_lists', 0);
 });

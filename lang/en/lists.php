@@ -39,6 +39,7 @@ return [
         'sender_identity' => 'The From address of this list.',
         'throttle_per_minute' => 'Postfix: 20 is a safe default.',
         'daily_cap' => 'Leave empty for no maximum.',
+        'key_locked' => 'The key is part of the web addresses, the List-Id of every mail and the sign-up blocks on your pages, so it cannot be changed after creation.',
     ],
     'actions' => [
         'transport' => 'Sending',
@@ -48,6 +49,7 @@ return [
     'errors' => [
         'needs_settings' => 'This needs the "manage sending settings" permission.',
         'has_subscriptions' => 'This list has subscribers and cannot be deleted.',
+        'no_sender' => 'No sender is configured yet. Set MAILING_FROM_ADDRESS or MAIL_FROM_ADDRESS and try again.',
     ],
     'flash' => [
         'saved' => 'The list has been saved.',

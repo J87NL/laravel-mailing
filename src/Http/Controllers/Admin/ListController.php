@@ -13,6 +13,7 @@ use J87NL\Mailing\Forms\ListTransportForm;
 use J87NL\Mailing\Models\MailingList;
 use J87NL\Mailing\Senders\ListSender;
 use J87NL\Mailing\Tables\ListTable;
+use RuntimeException;
 
 class ListController extends Controller
 {
@@ -52,13 +53,23 @@ class ListController extends Controller
         $validated = ListForm::make()->validate($request);
 
         $list = new MailingList;
-        $list->fill($this->listAttributes($validated));
+        $list->fill([
+            ...$this->listAttributes($validated),
+            'key' => (string) $validated['key'],
+        ]);
         $list->fill([
             'mailer' => (string) config('mailing.list_defaults.mailer'),
             'throttle_per_minute' => (int) config('mailing.list_defaults.throttle_per_minute', 20),
             'daily_cap' => config('mailing.list_defaults.daily_cap'),
         ]);
-        $list->sender_identity = $sender->for($list)->key;
+        try {
+            $list->sender_identity = $sender->for($list)->key;
+        } catch (RuntimeException) {
+            return to_route('mailing.lists.index')->withErrors([
+                'list' => __('mailing::lists.errors.no_sender'),
+            ]);
+        }
+
         $list->save();
 
         $this->toast(__('mailing::lists.flash.saved'));
@@ -174,7 +185,6 @@ class ListController extends Controller
 
         return [
             'name' => trim((string) $validated['name']),
-            'key' => (string) $validated['key'],
             'description' => $description === '' ? null : $description,
             'reply_to' => $replyTo === '' ? null : $replyTo,
             'is_public' => (bool) ($validated['is_public'] ?? false),

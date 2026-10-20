@@ -1,6 +1,6 @@
 {!! __('mailing::mail.confirm.greeting') !!}
 
-{!! __('mailing::mail.confirm.intro', ['list' => $listName]) !!}
+{!! __(sprintf('mailing::mail.%s.intro', $copy), ['list' => $listName]) !!}
 
 {!! __('mailing::mail.confirm.button') !!}: {!! $confirmUrl !!}
 

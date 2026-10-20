@@ -25,6 +25,10 @@ return [
         'add' => 'Suppress',
         'delete_confirm' => 'Are you sure you want to remove this address from the suppression list? It can sign up again afterwards.',
     ],
+    'lifted_note' => 'Suppression lifted (was: :reason)',
+    'errors' => [
+        'needs_settings' => 'Only the "manage sending settings" permission can remove an address from the suppression list.',
+    ],
     'flash' => [
         'saved' => 'The address is on the suppression list.',
         'deleted' => 'The address has been removed from the suppression list.',

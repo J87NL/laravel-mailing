@@ -40,17 +40,7 @@ class ListForm extends AbstractForm
                     'max:120',
                 ]),
 
-            Text::make('key')
-                ->label(__('mailing::lists.fields.key'))
-                ->help(__('mailing::lists.help.key'))
-                ->required()
-                ->rules([
-                    'string',
-                    'max:64',
-                    'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
-                    'not_in:confirm,unsubscribe,webhooks',
-                    Rule::unique('mailing_lists', 'key')->ignore($this->list?->id),
-                ]),
+            $this->keyField(),
 
             Textarea::make('description')
                 ->label(__('mailing::lists.fields.description'))
@@ -79,5 +69,28 @@ class ListForm extends AbstractForm
 
             Submit::make()->label(__('mailing::common.save')),
         ];
+    }
+
+    private function keyField(): Text
+    {
+        $field = Text::make('key')
+            ->label(__('mailing::lists.fields.key'));
+
+        if (! is_null($this->list)) {
+            return $field
+                ->readonly()
+                ->help(__('mailing::lists.help.key_locked'));
+        }
+
+        return $field
+            ->help(__('mailing::lists.help.key'))
+            ->required()
+            ->rules([
+                'string',
+                'max:64',
+                'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
+                'not_in:confirm,unsubscribe,webhooks',
+                Rule::unique('mailing_lists', 'key'),
+            ]);
     }
 }

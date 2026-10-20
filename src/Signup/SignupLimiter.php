@@ -12,6 +12,8 @@ class SignupLimiter
 {
     private const int DECAY_SECONDS = 3600;
 
+    private const int DAY_SECONDS = 86400;
+
     private const string GLOBAL_KEY = 'mailing-signup:global';
 
     public function __construct(
@@ -30,7 +32,11 @@ class SignupLimiter
 
     public function claimAddress(string $email): bool
     {
-        return $this->limiter->hit($this->addressKey($email), self::DECAY_SECONDS) <= (int) config('mailing.signup.per_address_per_hour', 3);
+        $hourly = $this->limiter->hit($this->addressKey($email), self::DECAY_SECONDS);
+        $daily = $this->limiter->hit($this->addressKey($email, 'day'), self::DAY_SECONDS);
+
+        return $hourly <= (int) config('mailing.signup.per_address_per_hour', 3)
+            && $daily <= (int) config('mailing.signup.per_address_per_day', 6);
     }
 
     public function claimOverall(): bool
@@ -53,8 +59,8 @@ class SignupLimiter
         return sprintf('mailing-signup:ip:%s', sha1((string) $request->ip()));
     }
 
-    private function addressKey(string $email): string
+    private function addressKey(string $email, string $window = 'hour'): string
     {
-        return sprintf('mailing-signup:address:%s', sha1(EmailAddress::normalize($email)));
+        return sprintf('mailing-signup:address:%s:%s', $window, sha1(EmailAddress::normalize($email)));
     }
 }

@@ -17,10 +17,13 @@ use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Support\ConsentSource;
 use J87NL\Mailing\Support\EmailAddress;
 use SplFileObject;
+use Throwable;
 
 class ImportSubscribers
 {
     private const int MAX_REPORTED_ERRORS = 50;
+
+    private const int MAX_NAME_LENGTH = 120;
 
     private const array EMAIL_HEADERS = [
         'email',
@@ -62,8 +65,8 @@ class ImportSubscribers
             ]);
 
         $errors = [];
-        $toConfirm = [];
         $seen = [];
+        $perMinute = max(1, (int) config('mailing.import.confirmations_per_minute', 20));
 
         $rows = $this->rows($path);
 
@@ -91,7 +94,23 @@ class ImportSubscribers
 
             $seen[$email] = true;
 
-            $subscription = $this->importRow($list, $email, $row['name'], $source, $hasDocumentedConsent ? $consentNote : null, $actorId);
+            try {
+                $subscription = $this->importRow($list, $email, mb_substr($row['name'], 0, self::MAX_NAME_LENGTH), $source, $hasDocumentedConsent ? $consentNote : null, $actorId);
+
+                if (! is_null($subscription) && $subscription->status === SubscriptionStatus::Pending) {
+                    $this->sendConfirmation->handle($subscription, true, intdiv((int) $import->confirmations_sent, $perMinute));
+                    $import->confirmations_sent++;
+                }
+            } catch (Throwable $e) {
+                report($e);
+
+                $errors[] = __('mailing::imports.errors.row_failed', [
+                    'line' => $line,
+                ]);
+                $import->skipped++;
+
+                continue;
+            }
 
             if (is_null($subscription)) {
                 $import->skipped++;
@@ -100,21 +119,12 @@ class ImportSubscribers
             }
 
             $import->imported++;
-
-            if ($subscription->status === SubscriptionStatus::Pending) {
-                $toConfirm[] = $subscription;
-            }
         }
 
         if ($rows->getReturn()) {
             array_unshift($errors, __('mailing::imports.errors.too_many_rows', [
                 'max' => (int) config('mailing.import.max_rows', 5000),
             ]));
-        }
-
-        foreach ($toConfirm as $subscription) {
-            $this->sendConfirmation->handle($subscription);
-            $import->confirmations_sent++;
         }
 
         $import->errors = $errors === [] ? null : array_slice($errors, 0, self::MAX_REPORTED_ERRORS);

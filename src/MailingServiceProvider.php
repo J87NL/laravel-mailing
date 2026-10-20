@@ -11,10 +11,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use J87NL\Cms\Blocks\BlockRegistry;
+use J87NL\Cms\Cache\FlushPageCache;
 use J87NL\Mailing\Cms\SignupBlock;
 use J87NL\Mailing\Console\PruneMailingData;
 use J87NL\Mailing\Contracts\MailboxReader;
 use J87NL\Mailing\Contracts\SenderIdentityProvider;
+use J87NL\Mailing\Models\MailingList;
 
 class MailingServiceProvider extends ServiceProvider
 {
@@ -45,6 +47,10 @@ class MailingServiceProvider extends ServiceProvider
             $this->callAfterResolving(BlockRegistry::class, function (BlockRegistry $registry): void {
                 $registry->register(SignupBlock::class);
             });
+        }
+
+        if (class_exists(FlushPageCache::class)) {
+            MailingList::observe(FlushPageCache::class);
         }
 
         if ($this->app->runningInConsole()) {

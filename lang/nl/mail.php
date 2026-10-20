@@ -9,6 +9,10 @@ return [
         'intro' => 'Je hebt je aangemeld voor :list. Bevestig je aanmelding met de knop hieronder.',
         'button' => 'Aanmelding bevestigen',
         'valid' => 'Deze link is :days dagen geldig.',
-        'ignore' => 'Heb je je niet aangemeld? Dan kun je deze mail negeren; je ontvangt dan niets van ons.',
+        'ignore' => 'Heb je je niet aangemeld? Dan kun je deze mail negeren. Je ontvangt dan niets van ons.',
+    ],
+    'confirm_import' => [
+        'subject' => 'Wil je de mailings van :list ontvangen?',
+        'intro' => 'Je e-mailadres staat in ons adressenbestand voor :list. We sturen je alleen mailings als je dat bevestigt met de knop hieronder.',
     ],
 ];

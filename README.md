@@ -22,13 +22,15 @@ Point `mailing.layout` at your public Blade layout (it yields `title`, `head` an
 
 ## What it does
 
-- **Sign-up:** a standalone page `/mailing/{list}/subscribe` and, when the CMS is installed, a `mailing_signup` block. Both are protected by a honeypot, a signed timestamp and rate limits per IP address, per address and overall, instead of CSRF and a session. The response is identical whether the address is new, pending, subscribed or suppressed. Only the response time can differ slightly, because a new or pending address queues a confirmation mail; that is an accepted trade-off.
+- **Sign-up:** a standalone page `/mailing/{list}/subscribe` and, when the CMS is installed, a `mailing_signup` block. Both are protected by a honeypot, a signed timestamp and rate limits per IP address, per address and overall, instead of CSRF and a session. The response is identical whether the address is new, pending, subscribed or suppressed. Only the response time can differ slightly, because a new or pending address queues a confirmation mail; that is an accepted trade-off. It only holds while the queue connection is not `sync`. A form token that is genuine but too old or too new gets a "please try again" with a fresh token instead of the silent success that bots get.
+- **Confirmation mails are capped:** a pending address gets at most one confirmation mail per 24 hours (`mailing.confirmation.resend_after_hours`), and an address can be requested at most `mailing.signup.per_address_per_day` times a day.
 - **Double opt-in:** a confirmation mail with a signed link valid for 7 days. The link opens a page with a button; only the POST confirms, so link scanners cannot confirm on someone's behalf.
 - **Unsubscribe:** every subscription has its own token. A POST to the unsubscribe URL unsubscribes at once (RFC 8058 one-click); a GET only shows a page with "this list" and "all lists". "All lists" adds a suppression.
 - **List headers:** mailables extending `ListMailable` carry `List-Unsubscribe` (HTTPS), `List-Unsubscribe-Post` and `List-Id`.
-- **Consent records:** every request, confirmation, import, unsubscribe and suppression is recorded with source, IP address, note and the acting admin.
-- **Admin:** lists, the transport per list, subscribers with their history and a CSV export, manual unsubscribe, suppressions and imports.
-- **Retention:** `mailing:prune` runs daily and deletes unconfirmed sign-ups after 30 days and the consent records of unsubscribed addresses after 2 years. Suppressions stay.
+- **Consent records:** every request, confirmation, import, unsubscribe, suppression and lifted suppression is recorded with source, IP address, note and the acting admin. A sign-up request stores the consent wording that was shown.
+- **Admin:** lists, the transport per list, subscribers with their history and a CSV export, manual unsubscribe, erasure of an address with its history (optionally keeping it suppressed), suppressions and imports. A list key cannot change after creation, and list changes flush the CMS page cache. Lifting a suppression needs `mailing.settings`.
+- **Imports:** pending rows get a confirmation mail with their own wording, spread over time at `mailing.import.confirmations_per_minute`. A failing row is reported and the import continues.
+- **Retention:** `mailing:prune` runs daily and deletes unconfirmed sign-ups after 30 days and the consent records of unsubscribed addresses after 2 years. A renewed sign-up that is never confirmed only loses its own request records; the earlier unsubscribe history stays and the subscription is ended again. Suppressions stay.
 
 ## Contracts
 

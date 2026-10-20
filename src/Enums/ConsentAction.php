@@ -11,6 +11,7 @@ enum ConsentAction: string
     case Imported = 'imported';
     case Unsubscribed = 'unsubscribed';
     case Suppressed = 'suppressed';
+    case Unsuppressed = 'unsuppressed';
 
     public function label(): string
     {

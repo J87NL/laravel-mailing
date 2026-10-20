@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use J87NL\Mailing\Enums\ConsentAction;
 use J87NL\Mailing\Enums\SubscriptionStatus;
 use J87NL\Mailing\Models\ConsentRecord;
 use J87NL\Mailing\Models\Subscriber;
@@ -21,7 +22,7 @@ class PruneMailingData extends Command
 
     public function handle(): int
     {
-        $unconfirmed = $this->prune(
+        $unconfirmed = $this->pruneUnconfirmed(
             Subscription::query()
                 ->where('status', SubscriptionStatus::Pending)
                 ->where('updated_at', '<', now()->subDays((int) config('mailing.retention.unconfirmed_days', 30))),
@@ -45,6 +46,70 @@ class PruneMailingData extends Command
         $this->info(sprintf('Pruned %d unconfirmed and %d ended subscriptions, and %d subscribers.', $unconfirmed, $ended, $subscribers));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  Builder<Subscription>  $query
+     */
+    private function pruneUnconfirmed(Builder $query): int
+    {
+        $count = 0;
+
+        $query->chunkById(200, function (Collection $subscriptions) use (&$count): void {
+            foreach ($subscriptions as $subscription) {
+                DB::transaction(function () use ($subscription): void {
+                    $earlier = ConsentRecord::query()
+                        ->where('subscriber_id', $subscription->subscriber_id)
+                        ->where('list_id', $subscription->list_id)
+                        ->where('action', ConsentAction::Unsubscribed)
+                        ->orderByDesc('id')
+                        ->first();
+
+                    if (is_null($earlier)) {
+                        ConsentRecord::query()
+                            ->where('subscriber_id', $subscription->subscriber_id)
+                            ->where('list_id', $subscription->list_id)
+                            ->delete();
+
+                        $subscription->delete();
+
+                        return;
+                    }
+
+                    ConsentRecord::query()
+                        ->where('subscriber_id', $subscription->subscriber_id)
+                        ->where('list_id', $subscription->list_id)
+                        ->whereIn('action', [
+                            ConsentAction::Requested,
+                            ConsentAction::Imported,
+                        ])
+                        ->where('id', '>', $earlier->id)
+                        ->delete();
+
+                    $confirmed = ConsentRecord::query()
+                        ->where('subscriber_id', $subscription->subscriber_id)
+                        ->where('list_id', $subscription->list_id)
+                        ->whereIn('action', [
+                            ConsentAction::Confirmed,
+                            ConsentAction::Imported,
+                        ])
+                        ->where('id', '<', $earlier->id)
+                        ->orderByDesc('id')
+                        ->first();
+
+                    $subscription->forceFill([
+                        'status' => SubscriptionStatus::Unsubscribed,
+                        'requested_name' => null,
+                        'confirmed_at' => $confirmed?->created_at,
+                        'unsubscribed_at' => $earlier->created_at,
+                    ])->save();
+                });
+
+                $count++;
+            }
+        });
+
+        return $count;
     }
 
     /**

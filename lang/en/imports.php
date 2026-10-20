@@ -33,6 +33,7 @@ return [
     'errors' => [
         'invalid_email' => 'Line :line: not a valid email address.',
         'too_many_rows' => 'The file has more than :max rows; only the first :max were processed.',
+        'row_failed' => 'Line :line could not be processed.',
         'no_lists' => 'Create a mailing list first.',
     ],
     'flash' => [

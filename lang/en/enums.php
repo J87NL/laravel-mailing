@@ -22,5 +22,6 @@ return [
         'imported' => 'Imported',
         'unsubscribed' => 'Unsubscribed',
         'suppressed' => 'Added to the suppression list',
+        'unsuppressed' => 'Removed from the suppression list',
     ],
 ];

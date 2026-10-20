@@ -101,3 +101,54 @@ test('a renewed sign-up that is never confirmed is purged even when the address 
     expect(Subscription::query()
         ->count())->toBe(0);
 });
+
+test('purging a renewed sign-up keeps the earlier unsubscribe history and ends the subscription again', function (): void {
+    $list = makeList();
+
+    $this->travel(-90)->days();
+    $subscription = makeSubscription($list, 'terug@example.org');
+    $confirmed = ConsentRecord::query()
+        ->create([
+            'subscriber_id' => $subscription->subscriber_id,
+            'list_id' => $list->id,
+            'action' => ConsentAction::Confirmed,
+        ]);
+    $this->travelBack();
+
+    $this->travel(-60)->days();
+    $unsubscribed = ConsentRecord::query()
+        ->create([
+            'subscriber_id' => $subscription->subscriber_id,
+            'list_id' => $list->id,
+            'action' => ConsentAction::Unsubscribed,
+        ]);
+    $this->travelBack();
+
+    $this->travel(-31)->days();
+    ConsentRecord::query()
+        ->create([
+            'subscriber_id' => $subscription->subscriber_id,
+            'list_id' => $list->id,
+            'action' => ConsentAction::Requested,
+        ]);
+    $subscription->forceFill([
+        'status' => SubscriptionStatus::Pending,
+        'confirmed_at' => null,
+        'unsubscribed_at' => null,
+    ])->save();
+    $this->travelBack();
+
+    $this->artisan('mailing:prune')->assertSuccessful();
+
+    $subscription->refresh();
+
+    expect(ConsentRecord::query()
+        ->orderBy('id')
+        ->pluck('id')->all())->toBe([
+            $confirmed->id,
+            $unsubscribed->id,
+        ])
+        ->and($subscription->status)->toBe(SubscriptionStatus::Unsubscribed)
+        ->and($subscription->unsubscribed_at?->toDateTimeString())->toBe($unsubscribed->created_at?->toDateTimeString())
+        ->and($subscription->confirmed_at?->toDateTimeString())->toBe($confirmed->created_at?->toDateTimeString());
+});

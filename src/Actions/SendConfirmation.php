@@ -11,7 +11,7 @@ use J87NL\Mailing\Models\Subscription;
 
 class SendConfirmation
 {
-    public function handle(Subscription $subscription): void
+    public function handle(Subscription $subscription, bool $imported = false, int $delayMinutes = 0): void
     {
         $subscription->loadMissing([
             'subscriber',
@@ -24,9 +24,15 @@ class SendConfirmation
 
         $mailer = config('mailing.transactional_mailer');
 
+        $mail = new ConfirmSubscriptionMail($subscription, $url, $imported);
+
+        if ($delayMinutes > 0) {
+            $mail->delay(now()->addMinutes($delayMinutes));
+        }
+
         Mail::mailer(is_string($mailer) && $mailer !== '' ? $mailer : null)
             ->to($subscription->subscriber)
-            ->queue(new ConfirmSubscriptionMail($subscription, $url));
+            ->queue($mail);
 
         $subscription->forceFill([
             'confirmation_sent_at' => now(),

@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use J87NL\Mailing\Actions\LiftSuppression;
 use J87NL\Mailing\Actions\SuppressAddress;
 use J87NL\Mailing\Enums\SuppressionReason;
 use J87NL\Mailing\Forms\SuppressionForm;
@@ -63,9 +64,9 @@ class SuppressionController extends Controller
         return to_route('mailing.suppressions.index');
     }
 
-    public function destroy(Suppression $suppression): RedirectResponse
+    public function destroy(Request $request, Suppression $suppression, LiftSuppression $liftSuppression): RedirectResponse
     {
-        $suppression->delete();
+        $liftSuppression->handle($suppression, $this->userId($request));
 
         $this->toast(__('mailing::suppressions.flash.deleted'));
 

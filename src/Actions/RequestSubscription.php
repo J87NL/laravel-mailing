@@ -20,7 +20,7 @@ class RequestSubscription
         private readonly SendConfirmation $sendConfirmation,
     ) {}
 
-    public function handle(MailingList $list, string $email, ?string $name, ?string $ip, string $source): ?Subscription
+    public function handle(MailingList $list, string $email, ?string $name, ?string $ip, string $source, ?string $consentText = null): ?Subscription
     {
         $email = EmailAddress::normalize($email);
 
@@ -28,7 +28,9 @@ class RequestSubscription
             return null;
         }
 
-        $subscription = DB::transaction(function () use ($list, $email, $name, $ip, $source): ?Subscription {
+        $alreadySent = false;
+
+        $subscription = DB::transaction(function () use ($list, $email, $name, $ip, $source, $consentText, &$alreadySent): ?Subscription {
             $subscriber = Subscriber::query()
                 ->lockForUpdate()
                 ->firstOrCreate([
@@ -47,6 +49,12 @@ class RequestSubscription
                 return null;
             }
 
+            if ($this->recentlySent($subscription)) {
+                $alreadySent = true;
+
+                return $subscription;
+            }
+
             $subscription->fill([
                 'status' => SubscriptionStatus::Pending,
                 'consent_at' => null,
@@ -57,17 +65,26 @@ class RequestSubscription
                 'unsubscribed_at' => null,
             ])->save();
 
-            $this->recordConsent->handle($subscriber, $list, ConsentAction::Requested, $source, $ip);
+            $this->recordConsent->handle($subscriber, $list, ConsentAction::Requested, $source, $ip, $consentText);
 
             return $subscription;
-        });
+        }, 3);
 
-        if (is_null($subscription)) {
-            return null;
+        if (is_null($subscription) || $alreadySent) {
+            return $subscription;
         }
 
         $this->sendConfirmation->handle($subscription);
 
         return $subscription;
+    }
+
+    private function recentlySent(Subscription $subscription): bool
+    {
+        if (! $subscription->exists || $subscription->status !== SubscriptionStatus::Pending || is_null($subscription->confirmation_sent_at)) {
+            return false;
+        }
+
+        return $subscription->confirmation_sent_at->gt(now()->subHours((int) config('mailing.confirmation.resend_after_hours', 24)));
     }
 }

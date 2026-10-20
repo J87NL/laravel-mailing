@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import TableBuilder from '@table-builder/components/TableBuilder.vue';
 import type { TableData } from '@table-builder/types/table-builder';
 import { useBreadcrumbs } from '@mailing/composables/useBreadcrumbs';
@@ -13,6 +13,7 @@ import { ui } from '@mailing/ui';
 
 const props = defineProps<{
     subscriber: MailingSubscriber;
+    eraseUrl: string;
     subscriptions: TableData;
     history: MailingHistoryEntry[];
     breadcrumbs: MailingBreadcrumb[];
@@ -27,18 +28,24 @@ const confirm = useConfirm();
     <Head :title="subscriber.email" />
 
     <div class="flex flex-col gap-6 p-4">
-        <div class="flex flex-col gap-1">
-            <h1 :class="ui.title">{{ subscriber.email }}</h1>
-            <p v-if="subscriber.name" :class="ui.muted">
-                {{ subscriber.name }}
-            </p>
-            <p v-if="subscriber.createdAt" :class="ui.muted">
-                {{
-                    $t('mailing::subscribers.show.created_at', {
-                        date: subscriber.createdAt,
-                    })
-                }}
-            </p>
+        <div class="flex items-start justify-between gap-4">
+            <div class="flex flex-col gap-1">
+                <h1 :class="ui.title">{{ subscriber.email }}</h1>
+                <p v-if="subscriber.name" :class="ui.muted">
+                    {{ subscriber.name }}
+                </p>
+                <p v-if="subscriber.createdAt" :class="ui.muted">
+                    {{
+                        $t('mailing::subscribers.show.created_at', {
+                            date: subscriber.createdAt,
+                        })
+                    }}
+                </p>
+            </div>
+
+            <Link :href="eraseUrl" :class="ui.dangerButton">
+                {{ $t('mailing::subscribers.erase.action') }}
+            </Link>
         </div>
 
         <p v-if="subscriber.suppression" :class="ui.notice">

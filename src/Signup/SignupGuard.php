@@ -19,27 +19,31 @@ class SignupGuard
         return sprintf('%d.%s', $time, $this->signature($listId, $time));
     }
 
-    public function looksHuman(Request $request, int $listId): bool
+    public function verdict(Request $request, int $listId): SignupVerdict
     {
         if (trim((string) $request->input(self::HONEYPOT, '')) !== '') {
-            return false;
+            return SignupVerdict::Bot;
         }
 
         $parts = explode('.', (string) $request->input(self::TIMESTAMP, ''), 2);
 
         if (count($parts) !== 2 || ! ctype_digit($parts[0])) {
-            return false;
+            return SignupVerdict::Bot;
         }
 
         $time = (int) $parts[0];
 
         if (! hash_equals($this->signature($listId, $time), $parts[1])) {
-            return false;
+            return SignupVerdict::Bot;
         }
 
         $age = now()->getTimestamp() - $time;
 
-        return $age >= (int) config('mailing.signup.min_seconds', 3) && $age <= (int) config('mailing.signup.max_seconds', 172800);
+        if ($age < (int) config('mailing.signup.min_seconds', 3) || $age > (int) config('mailing.signup.max_seconds', 172800)) {
+            return SignupVerdict::OutOfTime;
+        }
+
+        return SignupVerdict::Human;
     }
 
     private function signature(int $listId, int $time): string

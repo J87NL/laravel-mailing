@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use J87NL\Mailing\Actions\SendConfirmation;
 use J87NL\Mailing\Enums\ConsentAction;
 use J87NL\Mailing\Enums\SubscriptionStatus;
 use J87NL\Mailing\Enums\SuppressionReason;
@@ -11,6 +12,7 @@ use J87NL\Mailing\Mail\ConfirmSubscriptionMail;
 use J87NL\Mailing\MailingPermission;
 use J87NL\Mailing\Models\ConsentRecord;
 use J87NL\Mailing\Models\MailingImport;
+use J87NL\Mailing\Models\Subscriber;
 use J87NL\Mailing\Models\Subscription;
 use J87NL\Mailing\Models\Suppression;
 
@@ -136,4 +138,58 @@ test('an import reads Dutch headers behind a byte order mark and reports rows ov
         'piet@example.org',
     ])
         ->and($subscriptions->firstWhere('subscriber.email', 'jan@example.org')?->subscriber->name)->toBe('Jan');
+});
+
+test('import confirmations use their own wording and are spread over time', function (): void {
+    config()->set('mailing.import.confirmations_per_minute', 2);
+
+    $this->post(route('mailing.imports.store'), [
+        'list_id' => (string) $this->list->id,
+        'file' => csvUpload("email\na@example.org\nb@example.org\nc@example.org\n"),
+        'consent_source' => 'Intekenlijst markt mei',
+    ])->assertRedirect(route('mailing.imports.index'));
+
+    $mails = Mail::queued(ConfirmSubscriptionMail::class);
+
+    expect($mails)->toHaveCount(3)
+        ->and($mails->every(fn (ConfirmSubscriptionMail $mail): bool => $mail->imported))->toBeTrue()
+        ->and($mails->filter(fn (ConfirmSubscriptionMail $mail): bool => is_null($mail->delay))->count())->toBe(2)
+        ->and($mails->first()?->envelope()->subject)->toBe(__('mailing::mail.confirm_import.subject', [
+            'list' => 'Nieuwsbrief',
+        ]));
+});
+
+test('an import keeps going after a failing row and still mails the rows before and after it', function (): void {
+    $this->app->bind(SendConfirmation::class, fn (): SendConfirmation => new class extends SendConfirmation
+    {
+        public function handle(Subscription $subscription, bool $imported = false, int $delayMinutes = 0): void
+        {
+            if ($subscription->subscriber->email === 'kapot@example.org') {
+                throw new RuntimeException('Queue unavailable');
+            }
+
+            parent::handle($subscription, $imported, $delayMinutes);
+        }
+    });
+
+    $this->post(route('mailing.imports.store'), [
+        'list_id' => (string) $this->list->id,
+        'file' => csvUpload(sprintf("email,name\na@example.org,%s\nkapot@example.org,K\nb@example.org,B\n", str_repeat('x', 300))),
+        'consent_source' => 'Intekenlijst markt mei',
+    ])->assertRedirect(route('mailing.imports.index'));
+
+    Mail::assertQueued(ConfirmSubscriptionMail::class, 2);
+
+    $import = MailingImport::query()
+        ->sole();
+
+    expect($import)
+        ->imported->toBe(2)
+        ->confirmations_sent->toBe(2)
+        ->and($import->errors)->toBe([
+            __('mailing::imports.errors.row_failed', ['line' => 3]),
+        ])
+        ->and(mb_strlen((string) Subscriber::query()
+            ->where('email', 'a@example.org')
+            ->value('name')))->toBe(120);
 });

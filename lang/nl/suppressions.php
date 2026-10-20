@@ -25,6 +25,10 @@ return [
         'add' => 'Blokkeren',
         'delete_confirm' => 'Weet je zeker dat je dit adres van de blokkeerlijst wilt halen? Het kan zich daarna opnieuw aanmelden.',
     ],
+    'lifted_note' => 'Blokkade opgeheven (was: :reason)',
+    'errors' => [
+        'needs_settings' => 'Alleen met het recht "verzendinstellingen beheren" kun je een adres van de blokkeerlijst halen.',
+    ],
     'flash' => [
         'saved' => 'Het adres staat op de blokkeerlijst.',
         'deleted' => 'Het adres is van de blokkeerlijst gehaald.',

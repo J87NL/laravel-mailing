@@ -22,6 +22,7 @@ class ConfirmSubscriptionMail extends Mailable implements ShouldQueue
     public function __construct(
         public readonly Subscription $subscription,
         public readonly string $confirmUrl,
+        public readonly bool $imported = false,
     ) {}
 
     public function envelope(): Envelope
@@ -34,7 +35,7 @@ class ConfirmSubscriptionMail extends Mailable implements ShouldQueue
         return new Envelope(
             from: app(ListSender::class)->for($list)->address(),
             replyTo: $replyTo,
-            subject: __('mailing::mail.confirm.subject', [
+            subject: __(sprintf('mailing::mail.%s.subject', $this->copy()), [
                 'list' => $list->name,
             ]),
         );
@@ -49,7 +50,13 @@ class ConfirmSubscriptionMail extends Mailable implements ShouldQueue
                 'listName' => $this->subscription->mailingList->name,
                 'confirmUrl' => $this->confirmUrl,
                 'validDays' => (int) config('mailing.confirmation.valid_days', 7),
+                'copy' => $this->copy(),
             ],
         );
+    }
+
+    private function copy(): string
+    {
+        return $this->imported ? 'confirm_import' : 'confirm';
     }
 }

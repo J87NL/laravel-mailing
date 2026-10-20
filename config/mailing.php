@@ -58,18 +58,22 @@ return [
     'signup' => [
         'per_ip_per_hour' => 10,
         'per_address_per_hour' => 3,
+        'per_address_per_day' => 6,
         'global_per_hour' => 60,
         'min_seconds' => 3,
         'max_seconds' => 172800,
+        'success_query' => 'aangemeld',
     ],
 
     'confirmation' => [
         'valid_days' => 7,
+        'resend_after_hours' => 24,
     ],
 
     'import' => [
         'max_kilobytes' => 1024,
         'max_rows' => 5000,
+        'confirmations_per_minute' => 20,
     ],
 
     'retention' => [

@@ -10,8 +10,6 @@ use J87NL\Mailing\Models\MailingList;
 
 final readonly class SignupForm
 {
-    public const string SUCCESS_QUERY = 'aangemeld';
-
     public function __construct(
         private SignupGuard $guard,
     ) {}
@@ -52,14 +50,21 @@ final readonly class SignupForm
 
     public static function succeeded(Request $request, MailingList $list): bool
     {
-        return (string) $request->query(self::SUCCESS_QUERY, '') === $list->key;
+        return (string) $request->query(self::successQuery(), '') === $list->key;
     }
 
     public static function successUrl(MailingList $list, ?string $returnTo): string
     {
         $base = self::isLocalPath($returnTo) ? (string) $returnTo : route('mailing.subscribe.show', $list, false);
 
-        return sprintf('%s?%s=%s#%s', $base, self::SUCCESS_QUERY, rawurlencode($list->key), self::anchor($list));
+        return sprintf('%s?%s=%s#%s', $base, self::successQuery(), rawurlencode($list->key), self::anchor($list));
+    }
+
+    public static function successQuery(): string
+    {
+        $query = config('mailing.signup.success_query');
+
+        return is_string($query) && $query !== '' ? $query : 'subscribed';
     }
 
     public static function isLocalPath(?string $path): bool

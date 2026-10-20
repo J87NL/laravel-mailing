@@ -30,12 +30,16 @@ Route::middleware(config('mailing.routes.admin_middleware', []))
         Route::middleware(sprintf('can:%s', MailingPermission::Subscribers->value))->group(function (): void {
             Route::get('subscribers', [SubscriberController::class, 'index'])->name('subscribers.index');
             Route::get('subscribers/{subscriber}', [SubscriberController::class, 'show'])->name('subscribers.show');
+            Route::get('subscribers/{subscriber}/erase', [SubscriberController::class, 'confirmErase'])->name('subscribers.erase');
+            Route::delete('subscribers/{subscriber}', [SubscriberController::class, 'destroy'])->name('subscribers.destroy');
             Route::post('subscriptions/{subscription}/unsubscribe', [SubscriberController::class, 'unsubscribe'])->name('subscriptions.unsubscribe');
 
             Route::get('suppressions', [SuppressionController::class, 'index'])->name('suppressions.index');
             Route::get('suppressions/create', [SuppressionController::class, 'create'])->name('suppressions.create');
             Route::post('suppressions', [SuppressionController::class, 'store'])->name('suppressions.store');
-            Route::delete('suppressions/{suppression}', [SuppressionController::class, 'destroy'])->name('suppressions.destroy');
+            Route::delete('suppressions/{suppression}', [SuppressionController::class, 'destroy'])
+                ->middleware(sprintf('can:%s', MailingPermission::Settings->value))
+                ->name('suppressions.destroy');
 
             Route::get('imports', [ImportController::class, 'index'])->name('imports.index');
             Route::get('imports/create', [ImportController::class, 'create'])->name('imports.create');

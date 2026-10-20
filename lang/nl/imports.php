@@ -33,6 +33,7 @@ return [
     'errors' => [
         'invalid_email' => 'Regel :line: geen geldig e-mailadres.',
         'too_many_rows' => 'Het bestand heeft meer dan :max regels; alleen de eerste :max zijn verwerkt.',
+        'row_failed' => 'Regel :line kon niet worden verwerkt.',
         'no_lists' => 'Maak eerst een mailinglijst aan.',
     ],
     'flash' => [

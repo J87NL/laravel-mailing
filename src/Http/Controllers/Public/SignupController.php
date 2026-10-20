@@ -15,6 +15,7 @@ use J87NL\Mailing\Models\MailingList;
 use J87NL\Mailing\Signup\SignupForm;
 use J87NL\Mailing\Signup\SignupGuard;
 use J87NL\Mailing\Signup\SignupLimiter;
+use J87NL\Mailing\Signup\SignupVerdict;
 use J87NL\Mailing\Support\ConsentSource;
 
 class SignupController extends Controller
@@ -45,10 +46,20 @@ class SignupController extends Controller
             ]), 429)->header('Retry-After', (string) $this->limiter->retryAfterForIp($request));
         }
 
-        if (! $this->guard->looksHuman($request, $list->id)) {
-            $this->limiter->hitIp($request);
+        $verdict = $this->guard->verdict($request, $list->id);
 
+        if ($verdict !== SignupVerdict::Human) {
+            $this->limiter->hitIp($request);
+        }
+
+        if ($verdict === SignupVerdict::Bot) {
             return redirect(SignupForm::successUrl($list, $returnTo), 303);
+        }
+
+        if ($verdict === SignupVerdict::OutOfTime) {
+            return $this->page($request, $list, new MessageBag([
+                'form' => __('mailing::signup.expired'),
+            ]), 422);
         }
 
         $validator = Validator::make($request->only([
@@ -96,6 +107,9 @@ class SignupController extends Controller
             is_string($name) ? $name : null,
             $request->ip(),
             ConsentSource::make(ConsentSource::SIGNUP, (string) parse_url($returnTo ?? route('mailing.subscribe.show', $list, false), PHP_URL_PATH)),
+            __('mailing::signup.consent', [
+                'list' => $list->name,
+            ]),
         );
 
         return redirect(SignupForm::successUrl($list, $returnTo), 303);

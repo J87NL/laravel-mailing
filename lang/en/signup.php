@@ -11,6 +11,7 @@ return [
     'trap' => 'Leave this field empty',
     'has_errors' => 'Please check the fields below.',
     'too_many' => 'There are too many sign-ups at the moment. Please try again later.',
+    'expired' => 'This form has expired. Please try again.',
     'check_inbox' => 'Almost done! We have sent you an email. Click the link in that email to confirm your sign-up.',
     'consent' => 'You will receive the mailings of :list. You can unsubscribe at any time with the link at the bottom of every mail.',
     'privacy_before' => 'Read how we handle your data in our',

@@ -143,15 +143,10 @@ test('a suppressed address gets the same response but no mail', function (): voi
         ->count())->toBe(0);
 });
 
-test('bots filling the honeypot or posting too fast get the success response without a sign-up', function (): void {
+test('bots filling the honeypot or forging the token get the success response without a sign-up', function (): void {
     $this->post('/mailing/nieuws/subscribe', signupPayload($this->list, [
         SignupGuard::HONEYPOT => 'https://spam.example',
     ]))->assertRedirect('/mailing/nieuws/subscribe?aangemeld=nieuws#mailing-nieuws');
-
-    $this->post('/mailing/nieuws/subscribe', [
-        'email' => 'snel@example.org',
-        SignupGuard::TIMESTAMP => app(SignupGuard::class)->token($this->list->id),
-    ])->assertRedirect('/mailing/nieuws/subscribe?aangemeld=nieuws#mailing-nieuws');
 
     $this->post('/mailing/nieuws/subscribe', signupPayload($this->list, [
         SignupGuard::TIMESTAMP => '1.forged',
@@ -161,6 +156,74 @@ test('bots filling the honeypot or posting too fast get the success response wit
 
     expect(Subscriber::query()
         ->count())->toBe(0);
+});
+
+test('a genuine token that is too old or too new asks to try again with a fresh token', function (): void {
+    $this->travel(-3)->days();
+    $stale = app(SignupGuard::class)->token($this->list->id);
+    $this->travelBack();
+
+    $this->post('/mailing/nieuws/subscribe', [
+        'email' => 'oud-tabblad@example.org',
+        SignupGuard::TIMESTAMP => $stale,
+    ])
+        ->assertStatus(422)
+        ->assertSee(__('mailing::signup.expired'))
+        ->assertSee('value="oud-tabblad@example.org"', false)
+        ->assertDontSee(sprintf('value="%s"', $stale), false);
+
+    $this->post('/mailing/nieuws/subscribe', [
+        'email' => 'snel@example.org',
+        SignupGuard::TIMESTAMP => app(SignupGuard::class)->token($this->list->id),
+    ])
+        ->assertStatus(422)
+        ->assertSee(__('mailing::signup.expired'));
+
+    Mail::assertNothingQueued();
+
+    expect(Subscriber::query()
+        ->count())->toBe(0);
+});
+
+test('repeated requests for a pending address send one confirmation per day', function (): void {
+    $payload = signupPayload($this->list);
+
+    $this->post('/mailing/nieuws/subscribe', $payload);
+    $this->travel(2)->hours();
+    $this->post('/mailing/nieuws/subscribe', $payload);
+    $this->travel(2)->hours();
+    $this->post('/mailing/nieuws/subscribe', $payload)
+        ->assertRedirect('/mailing/nieuws/subscribe?aangemeld=nieuws#mailing-nieuws');
+
+    Mail::assertQueued(ConfirmSubscriptionMail::class, 1);
+
+    $this->travel(21)->hours();
+    $this->post('/mailing/nieuws/subscribe', $payload);
+
+    Mail::assertQueued(ConfirmSubscriptionMail::class, 2);
+});
+
+test('an address cannot be requested more often than the daily cap', function (): void {
+    config()->set('mailing.signup.per_address_per_day', 2);
+    config()->set('mailing.confirmation.resend_after_hours', 0);
+
+    $payload = signupPayload($this->list);
+
+    foreach (range(1, 3) as $attempt) {
+        $this->post('/mailing/nieuws/subscribe', $payload);
+        $this->travel(2)->hours();
+    }
+
+    Mail::assertQueued(ConfirmSubscriptionMail::class, 2);
+});
+
+test('the consent record keeps the consent wording that was shown', function (): void {
+    $this->post('/mailing/nieuws/subscribe', signupPayload($this->list));
+
+    expect(ConsentRecord::query()
+        ->sole()->note)->toBe(__('mailing::signup.consent', [
+            'list' => 'Nieuwsbrief',
+        ]));
 });
 
 test('invalid input shows the errors without storing anything', function (): void {
@@ -177,6 +240,8 @@ test('invalid input shows the errors without storing anything', function (): voi
 
 test('sign-ups are rate limited per address and per IP address', function (): void {
     config()->set('mailing.signup.per_ip_per_hour', 5);
+
+    config()->set('mailing.confirmation.resend_after_hours', 0);
 
     foreach (range(1, 4) as $attempt) {
         $this->post('/mailing/nieuws/subscribe', signupPayload($this->list))
