@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace J87NL\Mailing\Actions;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use J87NL\Mailing\Enums\SuppressionReason;
 use J87NL\Mailing\Models\Subscriber;
 use J87NL\Mailing\Models\Suppression;
@@ -27,7 +28,23 @@ class EraseSubscriber
                     ]);
             }
 
+            $listIds = $subscriber->subscriptions()
+                ->pluck('list_id')
+                ->all();
+
             $subscriber->delete();
+
+            if ($keepSuppressed) {
+                return;
+            }
+
+            Log::info('Mailing subscriber erased without a suppression', [
+                'actor_id' => $actorId,
+                'action' => 'subscriber_erased',
+                'subscriber_id' => $subscriber->id,
+                'list_ids' => $listIds,
+                'at' => now()->toIso8601String(),
+            ]);
         });
     }
 }

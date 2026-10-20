@@ -8,5 +8,5 @@ enum SignupVerdict
 {
     case Human;
     case Bot;
-    case OutOfTime;
+    case Expired;
 }

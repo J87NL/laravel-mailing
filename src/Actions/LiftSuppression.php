@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace J87NL\Mailing\Actions;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use J87NL\Mailing\Enums\ConsentAction;
 use J87NL\Mailing\Models\Subscriber;
 use J87NL\Mailing\Models\Suppression;
@@ -26,6 +27,13 @@ class LiftSuppression
             $suppression->delete();
 
             if (is_null($subscriber)) {
+                Log::info('Mailing suppression lifted without a subscriber', [
+                    'actor_id' => $actorId,
+                    'action' => 'suppression_lifted',
+                    'suppression_id' => $suppression->id,
+                    'at' => now()->toIso8601String(),
+                ]);
+
                 return;
             }
 

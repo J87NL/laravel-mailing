@@ -56,7 +56,7 @@ class SignupController extends Controller
             return redirect(SignupForm::successUrl($list, $returnTo), 303);
         }
 
-        if ($verdict === SignupVerdict::OutOfTime) {
+        if ($verdict === SignupVerdict::Expired) {
             return $this->page($request, $list, new MessageBag([
                 'form' => __('mailing::signup.expired'),
             ]), 422);

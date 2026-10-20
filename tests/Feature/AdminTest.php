@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Log;
 use J87NL\Cms\Cache\PageCache;
 use J87NL\Mailing\Enums\ConsentAction;
 use J87NL\Mailing\Enums\SubscriptionStatus;
@@ -325,4 +326,40 @@ test('creating a list without any configured sender explains what is missing', f
     ])->assertRedirect(route('mailing.lists.index'))->assertSessionHasErrors('list');
 
     $this->assertDatabaseCount('mailing_lists', 0);
+});
+
+test('lifting a suppression without a subscriber and erasing without a suppression leave a log line without the address', function (): void {
+    $list = makeList();
+    $erased = makeSubscription($list, 'weg@example.org');
+    $suppression = Suppression::query()
+        ->create([
+            'email' => 'onbekend@example.org',
+            'reason' => SuppressionReason::Manual,
+        ]);
+
+    Log::spy();
+
+    $this->actingWithPermissions([
+        MailingPermission::Subscribers->value,
+        MailingPermission::Settings->value,
+    ]);
+
+    $this->delete(route('mailing.suppressions.destroy', $suppression))->assertRedirect();
+    $this->delete(route('mailing.subscribers.destroy', $erased->subscriber_id), [
+        'keep_suppressed' => false,
+    ])->assertRedirect();
+
+    Log::shouldHaveReceived('info')
+        ->withArgs(fn (string $message, array $context): bool => $context['action'] === 'suppression_lifted'
+            && $context['suppression_id'] === $suppression->id
+            && $context['actor_id'] === 1
+            && ! str_contains((string) json_encode($context), '@'))
+        ->once();
+
+    Log::shouldHaveReceived('info')
+        ->withArgs(fn (string $message, array $context): bool => $context['action'] === 'subscriber_erased'
+            && $context['subscriber_id'] === $erased->subscriber_id
+            && $context['list_ids'] === [$list->id]
+            && ! str_contains((string) json_encode($context), '@'))
+        ->once();
 });

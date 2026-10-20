@@ -39,8 +39,12 @@ class SignupGuard
 
         $age = now()->getTimestamp() - $time;
 
-        if ($age < (int) config('mailing.signup.min_seconds', 3) || $age > (int) config('mailing.signup.max_seconds', 172800)) {
-            return SignupVerdict::OutOfTime;
+        if ($age < (int) config('mailing.signup.min_seconds', 3)) {
+            return SignupVerdict::Bot;
+        }
+
+        if ($age > (int) config('mailing.signup.max_seconds', 172800)) {
+            return SignupVerdict::Expired;
         }
 
         return SignupVerdict::Human;

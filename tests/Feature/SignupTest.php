@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Mail;
+use J87NL\Mailing\Actions\SendConfirmation;
 use J87NL\Mailing\Enums\ConsentAction;
 use J87NL\Mailing\Enums\SubscriptionStatus;
 use J87NL\Mailing\Enums\SuppressionReason;
@@ -158,7 +159,7 @@ test('bots filling the honeypot or forging the token get the success response wi
         ->count())->toBe(0);
 });
 
-test('a genuine token that is too old or too new asks to try again with a fresh token', function (): void {
+test('a genuine token that is too old asks to try again with a fresh token', function (): void {
     $this->travel(-3)->days();
     $stale = app(SignupGuard::class)->token($this->list->id);
     $this->travelBack();
@@ -172,17 +173,39 @@ test('a genuine token that is too old or too new asks to try again with a fresh 
         ->assertSee('value="oud-tabblad@example.org"', false)
         ->assertDontSee(sprintf('value="%s"', $stale), false);
 
+    Mail::assertNothingQueued();
+
+    expect(Subscriber::query()
+        ->count())->toBe(0);
+});
+
+test('a token posted too fast gets the success response without a sign-up', function (): void {
     $this->post('/mailing/nieuws/subscribe', [
         'email' => 'snel@example.org',
         SignupGuard::TIMESTAMP => app(SignupGuard::class)->token($this->list->id),
-    ])
-        ->assertStatus(422)
-        ->assertSee(__('mailing::signup.expired'));
+    ])->assertRedirect('/mailing/nieuws/subscribe?aangemeld=nieuws#mailing-nieuws');
 
     Mail::assertNothingQueued();
 
     expect(Subscriber::query()
         ->count())->toBe(0);
+});
+
+test('a confirmation that cannot be queued is not a silent success and can be requested again', function (): void {
+    $this->app->bind(SendConfirmation::class, fn (): SendConfirmation => new class extends SendConfirmation
+    {
+        public function handle(Subscription $subscription, bool $imported = false, int $delayMinutes = 0): void
+        {
+            throw new RuntimeException('Queue unavailable');
+        }
+    });
+
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->post('/mailing/nieuws/subscribe', signupPayload($this->list)))->toThrow(RuntimeException::class);
+
+    expect(Subscription::query()
+        ->sole()->confirmation_sent_at)->toBeNull();
 });
 
 test('repeated requests for a pending address send one confirmation per day', function (): void {

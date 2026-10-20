@@ -12,6 +12,7 @@ use J87NL\Mailing\Models\Subscriber;
 use J87NL\Mailing\Models\Subscription;
 use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Support\EmailAddress;
+use Throwable;
 
 class RequestSubscription
 {
@@ -29,8 +30,9 @@ class RequestSubscription
         }
 
         $alreadySent = false;
+        $previouslySentAt = null;
 
-        $subscription = DB::transaction(function () use ($list, $email, $name, $ip, $source, $consentText, &$alreadySent): ?Subscription {
+        $subscription = DB::transaction(function () use ($list, $email, $name, $ip, $source, $consentText, &$alreadySent, &$previouslySentAt): ?Subscription {
             $subscriber = Subscriber::query()
                 ->lockForUpdate()
                 ->firstOrCreate([
@@ -56,6 +58,8 @@ class RequestSubscription
                 return $subscription;
             }
 
+            $previouslySentAt = $subscription->confirmation_sent_at;
+
             $subscription->fill([
                 'status' => SubscriptionStatus::Pending,
                 'consent_at' => null,
@@ -76,7 +80,15 @@ class RequestSubscription
             return $subscription;
         }
 
-        $this->sendConfirmation->handle($subscription);
+        try {
+            $this->sendConfirmation->handle($subscription);
+        } catch (Throwable $e) {
+            $subscription->forceFill([
+                'confirmation_sent_at' => $previouslySentAt,
+            ])->save();
+
+            throw $e;
+        }
 
         return $subscription;
     }
