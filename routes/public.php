@@ -5,11 +5,14 @@ declare(strict_types=1);
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Support\Facades\Route;
 use J87NL\Mailing\Http\Controllers\Public\ConfirmationController;
+use J87NL\Mailing\Http\Controllers\Public\ConfirmationScriptController;
 use J87NL\Mailing\Http\Controllers\Public\SignupController;
 use J87NL\Mailing\Http\Controllers\Public\UnsubscribeController;
 use J87NL\Mailing\Http\Controllers\Public\WebhookController;
+use J87NL\Mailing\Http\Middleware\AllowSameOriginScripts;
 
 Route::middleware([
+    AllowSameOriginScripts::class,
     ...config('mailing.routes.public_middleware', []),
     SubstituteBindings::class,
 ])
@@ -19,6 +22,18 @@ Route::middleware([
         Route::get('confirm/{subscription}', [ConfirmationController::class, 'show'])
             ->middleware('throttle:30,1')
             ->name('confirm.show');
+    });
+
+Route::middleware([
+    ...config('mailing.routes.public_middleware', []),
+    SubstituteBindings::class,
+])
+    ->prefix((string) config('mailing.routes.public_prefix', 'mailing'))
+    ->name('mailing.')
+    ->group(function (): void {
+        Route::get('assets/confirm.js', ConfirmationScriptController::class)
+            ->middleware('throttle:60,1')
+            ->name('confirm.script');
         Route::post('confirm/{subscription}', [ConfirmationController::class, 'store'])
             ->middleware('throttle:30,1')
             ->name('confirm.store');
