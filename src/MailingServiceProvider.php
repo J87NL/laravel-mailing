@@ -13,9 +13,14 @@ use Illuminate\Support\ServiceProvider;
 use J87NL\Cms\Blocks\BlockRegistry;
 use J87NL\Cms\Cache\FlushPageCache;
 use J87NL\Mailing\Cms\SignupBlock;
+use J87NL\Mailing\Console\DispatchSends;
+use J87NL\Mailing\Console\ProcessBounces;
 use J87NL\Mailing\Console\PruneMailingData;
+use J87NL\Mailing\Contracts\DnsResolver;
+use J87NL\Mailing\Contracts\HtmlSanitizer;
 use J87NL\Mailing\Contracts\MailboxReader;
 use J87NL\Mailing\Contracts\SenderIdentityProvider;
+use J87NL\Mailing\Contracts\SpamScorer;
 use J87NL\Mailing\Models\MailingList;
 
 class MailingServiceProvider extends ServiceProvider
@@ -26,6 +31,9 @@ class MailingServiceProvider extends ServiceProvider
 
         $this->app->singleton(SenderIdentityProvider::class, fn (Application $app): SenderIdentityProvider => $app->make((string) config('mailing.sender_identity_provider')));
         $this->app->singleton(MailboxReader::class, fn (Application $app): MailboxReader => $app->make((string) config('mailing.mailbox_reader')));
+        $this->app->singleton(HtmlSanitizer::class, fn (Application $app): HtmlSanitizer => $app->make((string) config('mailing.html_sanitizer')));
+        $this->app->singleton(DnsResolver::class, fn (Application $app): DnsResolver => $app->make((string) config('mailing.preflight.dns_resolver')));
+        $this->app->singleton(SpamScorer::class, fn (Application $app): SpamScorer => $app->make((string) config('mailing.preflight.spam_scorer')));
 
         $this->registerPermissions();
         $this->registerNavigation();
@@ -55,6 +63,8 @@ class MailingServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->commands([
+                DispatchSends::class,
+                ProcessBounces::class,
                 PruneMailingData::class,
             ]);
         }
@@ -64,9 +74,17 @@ class MailingServiceProvider extends ServiceProvider
                 return;
             }
 
+            $schedule->command(DispatchSends::class)
+                ->everyMinute()
+                ->withoutOverlapping(5);
+
+            $schedule->command(ProcessBounces::class)
+                ->everyFiveMinutes()
+                ->withoutOverlapping(10);
+
             $schedule->command(PruneMailingData::class)
                 ->dailyAt('03:15')
-                ->withoutOverlapping();
+                ->withoutOverlapping(60);
         });
 
         $this->publishes([
@@ -97,6 +115,14 @@ class MailingServiceProvider extends ServiceProvider
         $key = (string) config('mailing.navigation_config_key');
 
         $items = [
+            [
+                'key' => 'mailing.campaigns',
+                'label' => 'mailing::navigation.campaigns',
+                'route' => 'mailing.campaigns.index',
+                'icon' => 'Send',
+                'permission' => MailingPermission::CampaignsEdit->value,
+                'order' => 195,
+            ],
             [
                 'key' => 'mailing.lists',
                 'label' => 'mailing::navigation.lists',

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 use J87NL\Mailing\Http\Controllers\Public\ConfirmationController;
 use J87NL\Mailing\Http\Controllers\Public\SignupController;
 use J87NL\Mailing\Http\Controllers\Public\UnsubscribeController;
+use J87NL\Mailing\Http\Controllers\Public\WebhookController;
 
 Route::middleware([
     ...config('mailing.routes.public_middleware', []),
@@ -28,6 +29,10 @@ Route::middleware([
         Route::post('unsubscribe/{token}', [UnsubscribeController::class, 'store'])
             ->middleware('throttle:mailing-unsubscribe')
             ->name('unsubscribe.store');
+
+        Route::post('webhooks/{driver}', WebhookController::class)
+            ->middleware('throttle:600,1')
+            ->name('webhooks');
 
         Route::get('{list:key}/subscribe', [SignupController::class, 'show'])
             ->name('subscribe.show');

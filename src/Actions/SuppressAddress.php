@@ -63,7 +63,7 @@ class SuppressAddress
     private function statusFor(SuppressionReason $reason): SubscriptionStatus
     {
         return match ($reason) {
-            SuppressionReason::HardBounce => SubscriptionStatus::Bounced,
+            SuppressionReason::HardBounce, SuppressionReason::SoftBounces => SubscriptionStatus::Bounced,
             SuppressionReason::Complaint => SubscriptionStatus::Complained,
             SuppressionReason::Manual, SuppressionReason::UnsubscribeAll => SubscriptionStatus::Unsubscribed,
         };

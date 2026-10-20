@@ -7,6 +7,8 @@ namespace J87NL\Mailing\Actions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use J87NL\Mailing\Enums\SuppressionReason;
+use J87NL\Mailing\Models\BounceEvent;
+use J87NL\Mailing\Models\Send;
 use J87NL\Mailing\Models\Subscriber;
 use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Support\ConsentSource;
@@ -31,6 +33,14 @@ class EraseSubscriber
             $listIds = $subscriber->subscriptions()
                 ->pluck('list_id')
                 ->all();
+
+            Send::query()
+                ->whereIn('subscription_id', $subscriber->subscriptions()->pluck('id'))
+                ->delete();
+
+            BounceEvent::query()
+                ->where('email', $subscriber->email)
+                ->delete();
 
             $subscriber->delete();
 

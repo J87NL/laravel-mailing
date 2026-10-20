@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\Schema;
 use Inertia\ServiceProvider as InertiaServiceProvider;
 use J87NL\Cms\CmsServiceProvider;
 use J87NL\Mailing\MailingServiceProvider;
+use J87NL\Mailing\Tests\Fakes\FakeDnsResolver;
+use J87NL\Mailing\Tests\Fakes\FakeMailboxReader;
+use J87NL\Mailing\Tests\Fakes\FakeSpamScorer;
 use Orchestra\Testbench\TestCase as BaseTestCase;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
 use TranquilTools\FormBuilder\FormBuilderServiceProvider;
@@ -65,6 +68,12 @@ abstract class TestCase extends BaseTestCase
                 'name' => 'Rommelmarkt',
             ],
         ]);
+        $app['config']->set('mailing.mailbox_reader', FakeMailboxReader::class);
+        $app['config']->set('mailing.preflight.dns_resolver', FakeDnsResolver::class);
+        $app['config']->set('mailing.preflight.spam_scorer', FakeSpamScorer::class);
+        $app['config']->set('mailing.mailer_drivers.array', 'postfix');
+        $app['config']->set('mailing.bounces.domain', 'rommelmarkt.test');
+        $app['config']->set('mailing.drivers.lettermint.webhook_secret', 'whsec_test');
         $app['config']->set('table-builder.routes.middleware', [
             'web',
             'auth',

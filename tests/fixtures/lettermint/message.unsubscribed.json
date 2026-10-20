@@ -1,0 +1,15 @@
+{
+    "id": "evt_unsubscribed",
+    "event": "message.unsubscribed",
+    "timestamp": "2026-10-19T12:00:00.000Z",
+    "data": {
+        "message_id": "lm_msg_01",
+        "recipient": "lid@example.org",
+        "metadata": {
+            "send_id": "__SEND__"
+        },
+        "tag": "campaign-1",
+        "headers": [],
+        "unsubscribed_at": "2026-10-19T12:00:00.000Z"
+    }
+}

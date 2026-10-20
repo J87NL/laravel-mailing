@@ -9,6 +9,8 @@ use J87NL\Mailing\Models\Subscription;
 
 class ListHeaders
 {
+    public const string PREVIEW_TOKEN = 'preview';
+
     /**
      * @return array<string, string>
      */
@@ -23,10 +25,29 @@ class ListHeaders
         ];
     }
 
+    /**
+     * @return array<string, string>
+     */
+    public function forPreview(MailingList $list): array
+    {
+        return [
+            'List-Id' => $this->listId($list),
+            'List-Unsubscribe' => sprintf('<%s>', $this->previewUnsubscribeUrl()),
+            'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
+        ];
+    }
+
     public function unsubscribeUrl(Subscription $subscription): string
     {
         return route('mailing.unsubscribe.show', [
             'token' => $subscription->unsubscribe_token,
+        ]);
+    }
+
+    public function previewUnsubscribeUrl(): string
+    {
+        return route('mailing.unsubscribe.show', [
+            'token' => self::PREVIEW_TOKEN,
         ]);
     }
 
@@ -40,7 +61,7 @@ class ListHeaders
         return sprintf('"%s" <%s.%s>', $name, $list->key, $this->domain());
     }
 
-    private function domain(): string
+    public function domain(): string
     {
         $configured = config('mailing.list_id_domain');
 

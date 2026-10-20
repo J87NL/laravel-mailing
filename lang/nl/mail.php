@@ -15,4 +15,9 @@ return [
         'subject' => 'Wil je de mailings van :list ontvangen?',
         'intro' => 'Je e-mailadres staat in ons adressenbestand voor :list. We sturen je alleen mailings als je dat bevestigt met de knop hieronder.',
     ],
+    'campaign' => [
+        'sender' => 'Verstuurd door :sender.',
+        'reason' => 'Je ontvangt deze mail omdat je je hebt aangemeld voor :list.',
+        'unsubscribe' => 'Afmelden',
+    ],
 ];

@@ -9,6 +9,8 @@ enum MailingPermission: string
     case Lists = 'mailing.lists';
     case Subscribers = 'mailing.subscribers';
     case Settings = 'mailing.settings';
+    case CampaignsEdit = 'mailing.campaigns.edit';
+    case CampaignsSend = 'mailing.campaigns.send';
 
     public function label(): string
     {

@@ -12,6 +12,8 @@ return [
         'import' => 'Import: :detail',
         'admin' => 'Beheer',
         'one-click' => 'Afmeldknop in de mail',
+        'dsn' => 'Bouncebericht',
+        'webhook' => 'Melding van :detail',
         'unsubscribe-page' => 'Afmeldpagina',
     ],
 ];

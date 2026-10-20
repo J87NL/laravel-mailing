@@ -12,6 +12,8 @@ return [
         'import' => 'Import: :detail',
         'admin' => 'Admin',
         'one-click' => 'Unsubscribe button in the mail',
+        'dsn' => 'Bounce message',
+        'webhook' => 'Notification from :detail',
         'unsubscribe-page' => 'Unsubscribe page',
     ],
 ];
