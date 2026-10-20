@@ -71,11 +71,20 @@ return [
         'preflight' => 'De controle vooraf heeft rode punten; los die eerst op.',
         'no_recipients' => 'Deze lijst heeft nog geen bevestigde abonnees.',
         'status' => 'Dat kan niet in de status ":status".',
+        'test_failed' => 'De testmail naar :recipient is niet verstuurd. :cause',
         'test_recipients' => 'Geef één tot :max geldige e-mailadressen op.',
     ],
     'responses' => [
         'interrupted' => 'Onderbroken tijdens het versturen; alleen opnieuw versturen als de mail niet is aangekomen.',
         'skipped_unsubscribed' => 'Overgeslagen: het adres is afgemeld of geblokkeerd.',
+    ],
+    'transport_errors' => [
+        'connection' => 'De mailserver weigerde de verbinding.',
+        'timeout' => 'De mailserver reageerde niet op tijd.',
+        'authentication' => 'De mailserver accepteerde de inloggegevens niet.',
+        'rejected' => 'De mailserver weigerde de mail (code :code).',
+        'deferred' => 'De mailserver vroeg om het later opnieuw te proberen (code :code).',
+        'unknown' => 'De mailserver gaf een onbekende fout; die staat in het logboek.',
     ],
     'flash' => [
         'saved' => 'De mailing is opgeslagen.',

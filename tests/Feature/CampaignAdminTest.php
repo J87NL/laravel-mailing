@@ -7,6 +7,8 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use J87NL\Mailing\Contracts\DnsResolver;
 use J87NL\Mailing\Contracts\SpamScorer;
 use J87NL\Mailing\Enums\CampaignStatus;
@@ -20,8 +22,11 @@ use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Preflight\PreflightCheck;
 use J87NL\Mailing\Preflight\PreflightItem;
 use J87NL\Mailing\Sending\Verp;
+use J87NL\Mailing\Tests\Fakes\FailingTransport;
 use J87NL\Mailing\Tests\Fakes\FakeDnsResolver;
 use J87NL\Mailing\Tests\Fakes\FakeSpamScorer;
+use J87NL\Mailing\Tests\Fakes\RefusingTransport;
+use Symfony\Component\Mailer\Transport\AbstractTransport;
 use Symfony\Component\Mime\Email;
 
 function healthyDns(): FakeDnsResolver
@@ -195,6 +200,46 @@ test('a test mail goes only to the entered addresses and creates no sends', func
         'recipients' => 'geen-adres',
     ])->assertSessionHasErrors('recipients');
 });
+
+test('a test mail that the mail server refuses shows the cause instead of an error page', function (int $code, string $cause): void {
+    FailingTransport::$code = $code;
+    Mail::extend('broken', fn (): AbstractTransport => $code === 0 ? new RefusingTransport : new FailingTransport);
+    config()->set('mail.mailers.broken', [
+        'transport' => 'broken',
+    ]);
+    $this->list->update([
+        'mailer' => 'broken',
+    ]);
+    $campaign = makeCampaign($this->list);
+
+    $this->actingWithPermissions([
+        MailingPermission::CampaignsEdit->value,
+        MailingPermission::CampaignsSend->value,
+    ]);
+
+    try {
+        $this->post(route('mailing.campaigns.test', $campaign), [
+            'recipients' => 'johan@example.org',
+        ])
+            ->assertRedirect(route('mailing.campaigns.show', $campaign))
+            ->assertSessionHasErrors([
+                'recipients' => __('mailing::campaigns.errors.test_failed', [
+                    'recipient' => 'johan@example.org',
+                    'cause' => __($cause, ['code' => $code]),
+                ]),
+            ])
+            ->assertSessionMissing('inertia.flash_data');
+    } finally {
+        FailingTransport::$code = 450;
+    }
+
+    expect(sentMessages())->toHaveCount(0)
+        ->and($campaign->sends()->count())->toBe(0)
+        ->and(RateLimiter::attempts('mailing-test-send:1'))->toBe(0);
+})->with([
+    'connection refused' => [0, 'mailing::campaigns.transport_errors.connection'],
+    'mail rejected' => [554, 'mailing::campaigns.transport_errors.rejected'],
+]);
 
 test('a campaign that is scheduled or sending can no longer be edited', function (CampaignStatus $status): void {
     $campaign = makeCampaign($this->list);

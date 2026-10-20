@@ -71,11 +71,20 @@ return [
         'preflight' => 'The pre-flight check has red items; fix those first.',
         'no_recipients' => 'This list has no confirmed subscribers yet.',
         'status' => 'That is not possible in the status ":status".',
+        'test_failed' => 'The test mail to :recipient was not sent. :cause',
         'test_recipients' => 'Enter one to :max valid email addresses.',
     ],
     'responses' => [
         'interrupted' => 'Interrupted while sending; only retry when the mail did not arrive.',
         'skipped_unsubscribed' => 'Skipped: the address unsubscribed or is suppressed.',
+    ],
+    'transport_errors' => [
+        'connection' => 'The mail server refused the connection.',
+        'timeout' => 'The mail server did not answer in time.',
+        'authentication' => 'The mail server did not accept the credentials.',
+        'rejected' => 'The mail server rejected the mail (code :code).',
+        'deferred' => 'The mail server asked to try again later (code :code).',
+        'unknown' => 'The mail server returned an unknown error; it is in the log.',
     ],
     'flash' => [
         'saved' => 'The mailing has been saved.',

@@ -22,6 +22,7 @@ use J87NL\Mailing\Forms\CampaignForm;
 use J87NL\Mailing\Forms\ScheduleForm;
 use J87NL\Mailing\Forms\TestSendForm;
 use J87NL\Mailing\Mail\CampaignMail;
+use J87NL\Mailing\Mail\TransportFailure;
 use J87NL\Mailing\MailingPermission;
 use J87NL\Mailing\Models\Campaign;
 use J87NL\Mailing\Models\MailingList;
@@ -31,6 +32,7 @@ use J87NL\Mailing\Preflight\PreflightItem;
 use J87NL\Mailing\Support\MailingTime;
 use J87NL\Mailing\Tables\CampaignTable;
 use J87NL\Mailing\Tables\SendTable;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mime\Email;
 use TranquilTools\FormBuilder\FormConfig;
 
@@ -285,19 +287,47 @@ class CampaignController extends Controller
         $campaign->loadMissing('mailingList');
         $driver = $drivers->for($campaign->mailingList);
 
-        foreach ($recipients as $recipient) {
-            RateLimiter::hit($limiterKey, 3600);
+        $sent = [];
 
-            Mail::mailer($campaign->mailingList->mailer)
-                ->to($recipient)
-                ->send((new CampaignMail($campaign))->withSymfonyMessage(fn (Email $message) => $driver->prepareTest($message, $campaign)));
+        foreach ($recipients as $recipient) {
+            try {
+                Mail::mailer($campaign->mailingList->mailer)
+                    ->to($recipient)
+                    ->send((new CampaignMail($campaign))->withSymfonyMessage(fn (Email $message) => $driver->prepareTest($message, $campaign)));
+            } catch (TransportExceptionInterface $exception) {
+                report($exception);
+
+                return $this->testSendFailed($campaign, $sent, $recipient, $exception);
+            }
+
+            RateLimiter::hit($limiterKey, 3600);
+            $sent[] = $recipient;
         }
 
         $this->toast(__('mailing::campaigns.flash.test_sent', [
-            'recipients' => implode(', ', $recipients),
+            'recipients' => implode(', ', $sent),
         ]));
 
         return to_route('mailing.campaigns.show', $campaign);
+    }
+
+    /**
+     * @param  list<string>  $sent
+     */
+    private function testSendFailed(Campaign $campaign, array $sent, string $recipient, TransportExceptionInterface $exception): RedirectResponse
+    {
+        if ($sent !== []) {
+            $this->toast(__('mailing::campaigns.flash.test_sent', [
+                'recipients' => implode(', ', $sent),
+            ]));
+        }
+
+        return to_route('mailing.campaigns.show', $campaign)->withErrors([
+            'recipients' => __('mailing::campaigns.errors.test_failed', [
+                'recipient' => $recipient,
+                'cause' => TransportFailure::describe($exception),
+            ]),
+        ]);
     }
 
     /**
