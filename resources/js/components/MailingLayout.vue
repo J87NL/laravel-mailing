@@ -15,7 +15,7 @@ const items = computed<MailingNavigationItem[]>(
 <template>
     <div class="flex flex-col gap-4 p-4 md:flex-row md:gap-6">
         <nav
-            v-if="items.length > 1"
+            v-if="items.length > 0"
             :aria-label="$t('mailing::navigation.sections')"
             class="flex shrink-0 gap-0.5 overflow-x-auto text-sm md:w-48 md:flex-col"
         >

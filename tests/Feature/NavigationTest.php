@@ -13,7 +13,8 @@ test('the package adds one main menu item for the whole mailing module', functio
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['route'])->toBe('mailing.home')
-        ->and($items[0]['permission'])->toBe(MailingNavigation::ABILITY);
+        ->and($items[0]['permission'])->toBe(MailingNavigation::ABILITY)
+        ->and($items[0]['active'])->toBe('mailing.*');
 });
 
 test('a user who may only manage lists is led to the lists and sees only the lists in the submenu', function (): void {
@@ -71,4 +72,33 @@ test('a user without any mailing permission gets no mailing menu item', function
     expect(Gate::allows(MailingNavigation::ABILITY))->toBeFalse();
 
     $this->get(route('mailing.home'))->assertForbidden();
+});
+
+test('a permission that opens no page on its own does not show the menu item', function (MailingPermission $permission): void {
+    $this->actingWithPermissions([$permission->value]);
+
+    expect(Gate::allows(MailingNavigation::ABILITY))->toBeFalse();
+
+    $this->get(route('mailing.home'))->assertForbidden();
+})->with([
+    'settings' => [MailingPermission::Settings],
+    'send' => [MailingPermission::CampaignsSend],
+]);
+
+test('the lists section stays marked on the transport page of a list', function (): void {
+    $this->actingWithPermissions([
+        MailingPermission::Lists->value,
+        MailingPermission::Settings->value,
+    ]);
+    $list = makeList();
+
+    $navigation = $this->get(route('mailing.lists.transport.edit', $list), [
+        'X-Inertia' => 'true',
+    ])
+        ->assertOk()
+        ->json('props.mailingNavigation');
+
+    expect(collect($navigation)->where('active', true)->pluck('key')->all())->toBe([
+        'lists',
+    ]);
 });

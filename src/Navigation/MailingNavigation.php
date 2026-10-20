@@ -69,13 +69,7 @@ class MailingNavigation
 
     public function allows(Authorizable $user): bool
     {
-        foreach (MailingPermission::cases() as $permission) {
-            if ($user->can($permission->value)) {
-                return true;
-            }
-        }
-
-        return false;
+        return ! is_null($this->firstUrlFor($user));
     }
 
     public function firstUrlFor(Authorizable $user): ?string

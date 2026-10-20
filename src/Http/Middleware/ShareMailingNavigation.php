@@ -19,10 +19,22 @@ class ShareMailingNavigation
 
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
-
-        Inertia::share('mailingNavigation', fn (): array => $user instanceof Authorizable ? $this->navigation->itemsFor($user, $request) : []);
+        Inertia::share('mailingNavigation', fn (): array => $this->itemsFor($request));
 
         return $next($request);
+    }
+
+    /**
+     * @return list<array{key: string, title: string, href: string, active: bool}>
+     */
+    private function itemsFor(Request $request): array
+    {
+        $user = $request->user();
+
+        if (! $user instanceof Authorizable) {
+            return [];
+        }
+
+        return $this->navigation->itemsFor($user, $request);
     }
 }
