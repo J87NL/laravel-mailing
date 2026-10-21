@@ -6,8 +6,10 @@ namespace J87NL\Mailing;
 
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Auth\Access\Authorizable;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use J87NL\Cms\Blocks\BlockRegistry;
@@ -22,6 +24,7 @@ use J87NL\Mailing\Contracts\MailboxReader;
 use J87NL\Mailing\Contracts\SenderIdentityProvider;
 use J87NL\Mailing\Contracts\SpamScorer;
 use J87NL\Mailing\Models\MailingList;
+use J87NL\Mailing\Navigation\MailingNavigation;
 
 class MailingServiceProvider extends ServiceProvider
 {
@@ -47,6 +50,10 @@ class MailingServiceProvider extends ServiceProvider
 
         RateLimiter::for('mailing-unsubscribe', fn (Request $request): Limit => Limit::perMinute(10)
             ->by(sprintf('mailing-unsubscribe:%s', sha1((string) $request->route('token')))));
+
+        Gate::define(MailingNavigation::ABILITY, fn (Authorizable $user): bool => $this->app
+            ->make(MailingNavigation::class)
+            ->allows($user));
 
         $this->loadRoutesFrom(__DIR__.'/../routes/public.php');
         $this->loadRoutesFrom(__DIR__.'/../routes/admin.php');
@@ -113,59 +120,21 @@ class MailingServiceProvider extends ServiceProvider
     private function registerNavigation(): void
     {
         $key = (string) config('mailing.navigation_config_key');
-
-        $items = [
-            [
-                'key' => 'mailing.campaigns',
-                'label' => 'mailing::navigation.campaigns',
-                'route' => 'mailing.campaigns.index',
-                'icon' => 'Send',
-                'permission' => MailingPermission::CampaignsEdit->value,
-                'order' => 195,
-            ],
-            [
-                'key' => 'mailing.lists',
-                'label' => 'mailing::navigation.lists',
-                'route' => 'mailing.lists.index',
-                'icon' => 'Mail',
-                'permission' => MailingPermission::Lists->value,
-                'order' => 200,
-            ],
-            [
-                'key' => 'mailing.subscribers',
-                'label' => 'mailing::navigation.subscribers',
-                'route' => 'mailing.subscribers.index',
-                'icon' => 'Contact',
-                'permission' => MailingPermission::Subscribers->value,
-                'order' => 210,
-            ],
-            [
-                'key' => 'mailing.suppressions',
-                'label' => 'mailing::navigation.suppressions',
-                'route' => 'mailing.suppressions.index',
-                'icon' => 'Ban',
-                'permission' => MailingPermission::Subscribers->value,
-                'order' => 220,
-            ],
-            [
-                'key' => 'mailing.imports',
-                'label' => 'mailing::navigation.imports',
-                'route' => 'mailing.imports.index',
-                'icon' => 'Upload',
-                'permission' => MailingPermission::Subscribers->value,
-                'order' => 230,
-            ],
-        ];
-
         $registered = config($key, []);
         $registeredKeys = is_array($registered) ? array_column($registered, 'key') : [];
 
-        foreach ($items as $item) {
-            if (in_array($item['key'], $registeredKeys, true)) {
-                continue;
-            }
-
-            config()->push($key, $item);
+        if (in_array('mailing', $registeredKeys, true)) {
+            return;
         }
+
+        config()->push($key, [
+            'key' => 'mailing',
+            'label' => 'mailing::navigation.mailing',
+            'route' => 'mailing.home',
+            'icon' => 'Mail',
+            'permission' => MailingNavigation::ABILITY,
+            'active' => 'mailing.*',
+            'order' => 200,
+        ]);
     }
 }

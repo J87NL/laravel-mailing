@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import TableBuilder from '@table-builder/components/TableBuilder.vue';
 import type { TableData } from '@table-builder/types/table-builder';
+import MailingLayout from '@mailing/components/MailingLayout.vue';
 import { useBreadcrumbs } from '@mailing/composables/useBreadcrumbs';
 import { useConfirm } from '@mailing/composables/useConfirm';
 import type { MailingBreadcrumb } from '@mailing/types';
@@ -21,22 +22,24 @@ const confirm = useConfirm();
 <template>
     <Head :title="$t('mailing::suppressions.index.title')" />
 
-    <div class="flex flex-col gap-6 p-4">
-        <div class="flex items-start justify-between gap-4">
-            <div class="flex flex-col gap-1">
-                <h1 :class="ui.title">
-                    {{ $t('mailing::suppressions.index.title') }}
-                </h1>
-                <p :class="ui.muted">
-                    {{ $t('mailing::suppressions.index.description') }}
-                </p>
+    <MailingLayout>
+        <div class="flex flex-col gap-6">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex flex-col gap-1">
+                    <h1 :class="ui.title">
+                        {{ $t('mailing::suppressions.index.title') }}
+                    </h1>
+                    <p :class="ui.muted">
+                        {{ $t('mailing::suppressions.index.description') }}
+                    </p>
+                </div>
+
+                <Link :href="createUrl" :class="ui.primaryButton">
+                    {{ $t('mailing::suppressions.create.title') }}
+                </Link>
             </div>
 
-            <Link :href="createUrl" :class="ui.primaryButton">
-                {{ $t('mailing::suppressions.create.title') }}
-            </Link>
+            <TableBuilder :table="suppressions" :confirm="confirm" />
         </div>
-
-        <TableBuilder :table="suppressions" :confirm="confirm" />
-    </div>
+    </MailingLayout>
 </template>

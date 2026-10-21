@@ -4,16 +4,26 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use J87NL\Mailing\Http\Controllers\Admin\CampaignController;
+use J87NL\Mailing\Http\Controllers\Admin\HomeController;
 use J87NL\Mailing\Http\Controllers\Admin\ImportController;
 use J87NL\Mailing\Http\Controllers\Admin\ListController;
 use J87NL\Mailing\Http\Controllers\Admin\SubscriberController;
 use J87NL\Mailing\Http\Controllers\Admin\SuppressionController;
+use J87NL\Mailing\Http\Middleware\ShareMailingNavigation;
 use J87NL\Mailing\MailingPermission;
+use J87NL\Mailing\Navigation\MailingNavigation;
 
-Route::middleware(config('mailing.routes.admin_middleware', []))
+Route::middleware([
+    ...config('mailing.routes.admin_middleware', []),
+    ShareMailingNavigation::class,
+])
     ->prefix((string) config('mailing.routes.admin_prefix', 'admin/mailing'))
     ->name('mailing.')
     ->group(function (): void {
+        Route::get('/', HomeController::class)
+            ->middleware(sprintf('can:%s', MailingNavigation::ABILITY))
+            ->name('home');
+
         Route::middleware(sprintf('can:%s', MailingPermission::Lists->value))->group(function (): void {
             Route::get('lists', [ListController::class, 'index'])->name('lists.index');
             Route::get('lists/create', [ListController::class, 'create'])->name('lists.create');

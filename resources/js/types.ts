@@ -51,3 +51,10 @@ export type MailingCampaign = {
     estimatedFinish: string | null;
     transport: string;
 };
+
+export type MailingNavigationItem = {
+    key: string;
+    title: string;
+    href: string;
+    active: boolean;
+};
