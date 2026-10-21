@@ -6,6 +6,7 @@ use J87NL\Mailing\Drivers\LettermintDriver;
 use J87NL\Mailing\Drivers\PostfixDriver;
 use J87NL\Mailing\Html\BasicHtmlSanitizer;
 use J87NL\Mailing\Mailbox\NullMailboxReader;
+use J87NL\Mailing\Postfix\FilePostfixLogReader;
 use J87NL\Mailing\Preflight\NativeDnsResolver;
 use J87NL\Mailing\Preflight\RspamdSpamScorer;
 use J87NL\Mailing\Senders\ConfigSenderIdentityProvider;
@@ -113,6 +114,12 @@ return [
         'local_part' => 'bounces',
         'soft_limit' => 3,
         'soft_window_days' => 30,
+    ],
+
+    'postfix_log' => [
+        'path' => env('MAILING_POSTFIX_LOG_PATH'),
+        'reader' => FilePostfixLogReader::class,
+        'queue_ttl_hours' => 48,
     ],
 
     'preflight' => [

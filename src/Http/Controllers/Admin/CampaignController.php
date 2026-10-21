@@ -14,6 +14,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use J87NL\Mailing\Actions\ChangeCampaignStatus;
 use J87NL\Mailing\Actions\SaveCampaign;
+use J87NL\Mailing\Contracts\MailingDriver;
 use J87NL\Mailing\Drivers\DriverRegistry;
 use J87NL\Mailing\Enums\CampaignStatus;
 use J87NL\Mailing\Enums\SendStatus;
@@ -158,7 +159,7 @@ class CampaignController extends Controller
                 'finishedAt' => MailingTime::format($campaign->finished_at, 'D MMMM YYYY HH:mm'),
                 'recipients' => in_array($campaign->status, self::UNSTARTED, true) ? $recipients : array_sum($counts),
                 'estimatedFinish' => $this->estimatedFinish($campaign, $counts),
-                'transport' => $driver->reportsDelivery() ? __('mailing::campaigns.transport.provider') : __('mailing::campaigns.transport.postfix'),
+                'transport' => $this->transport($driver),
             ],
             'counts' => array_map(
                 fn (SendStatus $status): array => [
@@ -391,6 +392,19 @@ class CampaignController extends Controller
             ->where('status', SendStatus::Failed)
             ->whereNull('handed_over_at')
             ->exists();
+    }
+
+    private function transport(MailingDriver $driver): string
+    {
+        if ($driver->reportsDelivery()) {
+            return (string) __('mailing::campaigns.transport.provider');
+        }
+
+        if ($driver->key() === 'postfix' && filled(config('mailing.postfix_log.path'))) {
+            return (string) __('mailing::campaigns.transport.postfix_log');
+        }
+
+        return (string) __('mailing::campaigns.transport.postfix');
     }
 
     /**

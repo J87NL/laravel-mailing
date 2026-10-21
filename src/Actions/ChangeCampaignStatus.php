@@ -62,6 +62,7 @@ class ChangeCampaignStatus
                     SendStatus::Queued,
                     SendStatus::Deferred,
                 ])
+                ->whereNull('handed_over_at')
                 ->update([
                     'status' => SendStatus::Cancelled,
                     'updated_at' => now(),

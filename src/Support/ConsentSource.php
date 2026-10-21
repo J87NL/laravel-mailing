@@ -22,6 +22,8 @@ class ConsentSource
 
     public const string WEBHOOK = 'webhook';
 
+    public const string POSTFIX_LOG = 'postfix-log';
+
     private const int MAX_DETAIL_LENGTH = 200;
 
     private const string SEPARATOR = ': ';

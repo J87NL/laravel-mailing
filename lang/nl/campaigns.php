@@ -49,6 +49,7 @@ return [
     ],
     'transport' => [
         'postfix' => 'Deze lijst verstuurt via de eigen Postfix. "Overgedragen" betekent dat Postfix de mail heeft aangenomen; of hij is afgeleverd weten we niet, alleen bounces komen terug. Of een mail in de inbox of in de spam belandt, meldt geen enkele verzendroute.',
+        'postfix_log' => 'Deze lijst verstuurt via de eigen Postfix, en het pakket leest het maillog. "Afgeleverd" betekent dat de ontvangende mailserver de mail heeft aangenomen, "Uitgesteld" dat Postfix het nog opnieuw probeert, "Gebounced" dat de ontvangende server hem definitief weigerde. Of een mail in de inbox of in de spam belandt, meldt geen enkele verzendroute.',
         'provider' => 'Deze lijst verstuurt via een API-provider. Aflevering, bounces en klachten komen terug via de webhook. Of een mail in de inbox of in de spam belandt, meldt geen enkele verzendroute.',
     ],
     'actions' => [

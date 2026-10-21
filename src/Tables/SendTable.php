@@ -6,6 +6,7 @@ namespace J87NL\Mailing\Tables;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use J87NL\Mailing\Enums\SendStatus;
 use J87NL\Mailing\Jobs\SendCampaignMessage;
 use J87NL\Mailing\MailingPermission;
@@ -17,6 +18,8 @@ use TranquilTools\TableBuilder\TableBuilder;
 
 final class SendTable extends AbstractTable
 {
+    private const int RESPONSE_LENGTH = 160;
+
     private const array RESPONSE_KEYS = [
         Dispatcher::INTERRUPTED,
         SendCampaignMessage::SKIPPED_UNSUBSCRIBED,
@@ -74,7 +77,7 @@ final class SendTable extends AbstractTable
         $response = (string) ($send->bounce_diagnostic ?? $send->last_response);
 
         if (! in_array($response, self::RESPONSE_KEYS, true)) {
-            return $response;
+            return Str::limit($response, self::RESPONSE_LENGTH);
         }
 
         return (string) __(sprintf('mailing::campaigns.responses.%s', $response));
