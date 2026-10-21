@@ -68,7 +68,7 @@ download link for large files, and only real attachments count towards that warn
 
 | Method | URL                               | Name                           | Rate limit    |
 | ------ | --------------------------------- | ------------------------------ | ------------- |
-| GET    | `/mailing/attachments/{token}`    | `mailing.attachments.download` | 60 per minute |
+| GET    | `/mailing/attachments/{token}`    | `mailing.attachments.download` | 60 per minute per IP (`mailing-attachments`) |
 
 - The URL is a temporary signed URL (`URL::temporarySignedRoute`), valid for `link_valid_days`
   (30) days from the moment the mail is rendered. A missing, altered or expired signature gives a
@@ -94,11 +94,18 @@ that only some recipients may see.
 
 ## A missing file
 
-When the file of an attachment is gone from the disk (deleted by hand, a disk that was not shared
-between servers), the [pre-flight check](preflight.md#attachments) turns red and names the file, so
-the campaign cannot be scheduled. The spam score is then not measured. A campaign that is already
-sending fails each send with the cause "The file of attachment ... is missing" instead of sending a
-mail without it. Remove the attachment and add it again.
+When the file of an attachment is gone from the disk (deleted by hand, or a disk that is not shared
+between servers):
+
+- **Draft:** the [pre-flight check](preflight.md#attachments) turns red and names the file, so the
+  campaign cannot be scheduled, and the spam score is not measured. A test send is refused with the
+  same message and does not count towards the hourly limit. Remove the attachment and add it again.
+- **Sending:** the first send that needs the file pauses the campaign. That send goes back to the
+  queue with the cause in its last response, "The file of attachment ... is missing: <path> on disk
+  ...", and the exception is reported. No send is failed and no mail goes out without the file. Put
+  the file back at that path on that disk, then click "Resume". A send that failed for another
+  reason in the meantime can be retried with "Retry failed sends".
+- **Download link:** the link gives a 404.
 
 ## Retention
 
@@ -108,6 +115,9 @@ mail without it. Remove the attachment and add it again.
   `finished_at` is older than `retention_days` (30) days. The period is never shorter than
   `link_valid_days`, so a link in the last mail of a campaign keeps working until it expires.
 - Files are deleted after the database transaction commits.
+- Pruning locks the campaign and checks again that it is still `sent` or `cancelled`, finished
+  before the cutoff, and has no queued, deferred or sending sends. A campaign that a retry started
+  again in the meantime keeps its attachments.
 - Pruning sets `attachments_pruned_at` on the campaign without changing its `updated_at`. From then
   on "Retry failed sends" is disabled with the reason, and the route refuses it, because a retried
   mail would go out without its attachments. The campaign page shows the date.

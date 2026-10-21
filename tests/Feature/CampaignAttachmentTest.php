@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -617,7 +618,7 @@ test('download links are limited to 60 requests a minute', function (): void {
     $this->get($url)->assertTooManyRequests();
 });
 
-test('a missing attachment file blocks scheduling and fails the send with a clear cause', function (): void {
+test('a missing attachment file blocks scheduling and test sends', function (): void {
     $campaign = makeCampaign($this->list);
     $attachment = attachFile($campaign, 'flyer.pdf');
 
@@ -640,17 +641,109 @@ test('a missing attachment file blocks scheduling and fails the send with a clea
     $this->post(route('mailing.campaigns.schedule', $campaign))->assertSessionHasErrors('campaign');
 
     expect($campaign->fresh()->status)->toBe(CampaignStatus::Draft)
-        ->and(fn () => (new CampaignMail($campaign->fresh()))->attachments())->toThrow(MissingAttachmentFile::class, 'flyer.pdf');
+        ->and(fn () => (new CampaignMail($campaign->fresh()))->attachments())->toThrow(MissingAttachmentFile::class, $attachment->path);
 
-    app(StartCampaign::class)->handle($campaign->fresh());
+    $this->post(route('mailing.campaigns.test', $campaign), [
+        'recipients' => 'test@example.org',
+    ])->assertSessionHasErrors([
+        'recipients' => __('mailing::preflight.messages.attachments.missing', [
+            'names' => 'flyer.pdf',
+        ]),
+    ]);
+
+    expect(sentMessages())->toHaveCount(0)
+        ->and(RateLimiter::attempts('mailing-test-send:1'))->toBe(0);
+});
+
+test('a file that goes missing while sending pauses the campaign instead of failing every send', function (): void {
+    makeSubscription($this->list, 'twee@example.org');
+    $campaign = makeCampaign($this->list);
+    $attachment = attachFile($campaign, 'flyer.pdf');
+    $content = (string) Storage::disk('local')->get($attachment->path);
+    app(StartCampaign::class)->handle($campaign);
+
+    Storage::disk('local')->delete($attachment->path);
+
     runDispatcher();
 
-    $send = Send::query()
-        ->sole();
+    expect($campaign->fresh()->status)->toBe(CampaignStatus::Paused)
+        ->and(sentMessages())->toHaveCount(0)
+        ->and(Send::query()->where('status', SendStatus::Failed)->count())->toBe(0)
+        ->and(Send::query()->where('status', SendStatus::Queued)->count())->toBe(2)
+        ->and(Send::query()->whereNotNull('last_response')->value('last_response'))->toContain($attachment->path);
 
-    expect($send->status)->toBe(SendStatus::Failed)
-        ->and($send->last_response)->toContain('flyer.pdf')
-        ->and(sentMessages())->toHaveCount(0);
+    Storage::disk('local')->put($attachment->path, $content);
+    app(ChangeCampaignStatus::class)->resume($campaign);
+    $this->travel(2)->minutes();
+    runDispatcher();
+
+    expect(sentMessages())->toHaveCount(2)
+        ->and(attachedNames(sentMessages()->first()->getOriginalMessage()))->toBe(['flyer.pdf']);
+});
+
+test('attachments are not pruned when a retry started the campaign again in the meantime', function (): void {
+    config()->set('mailing.attachments.retention_days', 30);
+
+    $campaign = makeCampaign($this->list);
+    $attachment = attachFile($campaign);
+    $campaign->forceFill([
+        'status' => CampaignStatus::Sent,
+        'finished_at' => now()->subDays(31),
+    ])->save();
+
+    $retried = false;
+
+    Campaign::retrieved(function (Campaign $retrieved) use (&$retried): void {
+        if ($retried) {
+            return;
+        }
+
+        $retried = true;
+
+        Campaign::query()
+            ->whereKey($retrieved->id)
+            ->update([
+                'status' => CampaignStatus::Sending,
+                'finished_at' => null,
+            ]);
+    });
+
+    $this->artisan('mailing:prune')->assertSuccessful();
+
+    expect($retried)->toBeTrue()
+        ->and($campaign->attachments()->count())->toBe(1)
+        ->and($campaign->fresh()->attachments_pruned_at)->toBeNull();
+
+    Storage::disk('local')->assertExists($attachment->path);
+});
+
+test('attachments of a finished campaign with sends still waiting are not pruned', function (): void {
+    config()->set('mailing.attachments.retention_days', 30);
+
+    $campaign = makeCampaign($this->list);
+    attachFile($campaign);
+    app(StartCampaign::class)->handle($campaign);
+    $campaign->forceFill([
+        'status' => CampaignStatus::Sent,
+        'finished_at' => now()->subDays(31),
+    ])->save();
+
+    $this->artisan('mailing:prune')->assertSuccessful();
+
+    expect($campaign->attachments()->count())->toBe(1);
+});
+
+test('downloads have their own rate limit, apart from other public routes', function (): void {
+    $campaign = makeCampaign($this->list);
+    $attachment = attachFile($campaign, 'plattegrond.pdf', 1, 'application/pdf', true);
+    $attachments = app(CampaignAttachments::class);
+    $url = $attachments->downloadUrl($attachment, $attachments->linkExpiry());
+
+    for ($i = 0; $i < 60; $i++) {
+        $this->get($url)->assertOk();
+    }
+
+    $this->get(route('mailing.confirm.script'))->assertOk();
 });
 
 test('failed sends are not retried once the attachments are pruned', function (): void {

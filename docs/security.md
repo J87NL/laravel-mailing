@@ -13,7 +13,7 @@
 | GET    | `/mailing/assets/confirm.js`      | `mailing.confirm.script`     | 60 per minute              |
 | GET    | `/mailing/unsubscribe/{token}`    | `mailing.unsubscribe.show`   | 10 per minute per token    |
 | POST   | `/mailing/unsubscribe/{token}`    | `mailing.unsubscribe.store`  | 10 per minute per token    |
-| GET    | `/mailing/attachments/{token}`    | `mailing.attachments.download` | 60 per minute            |
+| GET    | `/mailing/attachments/{token}`    | `mailing.attachments.download` | 60 per minute per IP     |
 | POST   | `/mailing/webhooks/{driver}`      | `mailing.webhooks`           | 600 per minute             |
 
 They run without the `web` middleware group: no session, no cookies, no CSRF token. Each POST is

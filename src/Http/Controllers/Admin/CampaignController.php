@@ -268,10 +268,20 @@ class CampaignController extends Controller
         return to_route('mailing.campaigns.show', $campaign);
     }
 
-    public function test(Request $request, Campaign $campaign, DriverRegistry $drivers): RedirectResponse
+    public function test(Request $request, Campaign $campaign, DriverRegistry $drivers, CampaignAttachments $attachments): RedirectResponse
     {
         if (! $campaign->isEditable()) {
             return $this->locked($campaign);
+        }
+
+        $missing = $attachments->missing($campaign);
+
+        if ($missing !== []) {
+            return to_route('mailing.campaigns.show', $campaign)->withErrors([
+                'recipients' => __('mailing::preflight.messages.attachments.missing', [
+                    'names' => implode(', ', array_map(fn (CampaignAttachment $attachment): string => $attachment->name, $missing)),
+                ]),
+            ]);
         }
 
         $validated = TestSendForm::make()->validate($request);

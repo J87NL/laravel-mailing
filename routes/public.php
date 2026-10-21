@@ -55,7 +55,7 @@ Route::middleware([
         Route::get('attachments/{token}', AttachmentDownloadController::class)
             ->middleware([
                 ValidateSignature::class,
-                'throttle:60,1',
+                'throttle:mailing-attachments',
             ])
             ->withoutMiddleware([
                 AddQueuedCookiesToResponse::class,

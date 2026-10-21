@@ -11,6 +11,8 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use J87NL\Mailing\Actions\ChangeCampaignStatus;
+use J87NL\Mailing\Attachments\MissingAttachmentFile;
 use J87NL\Mailing\Drivers\DriverRegistry;
 use J87NL\Mailing\Enums\CampaignStatus;
 use J87NL\Mailing\Enums\SendStatus;
@@ -45,7 +47,7 @@ class SendCampaignMessage implements ShouldQueue
         $this->onQueue((string) config('mailing.sending.queue', 'mailing'));
     }
 
-    public function handle(DriverRegistry $drivers, RetrySchedule $retries, ListHeaders $listHeaders, SendingLimits $limits): void
+    public function handle(DriverRegistry $drivers, RetrySchedule $retries, ListHeaders $listHeaders, SendingLimits $limits, ChangeCampaignStatus $status): void
     {
         $send = Send::query()
             ->with([
@@ -107,6 +109,17 @@ class SendCampaignMessage implements ShouldQueue
             Mail::mailer($list->mailer)->to($send->email)->send($mail);
         } catch (TransportExceptionInterface $exception) {
             $this->failedTransport($send, $exception, $retries);
+
+            return;
+        } catch (MissingAttachmentFile $exception) {
+            report($exception);
+
+            $this->leaveSending($send, [
+                'status' => SendStatus::Queued,
+                'last_response' => Str::limit($exception->getMessage(), 1000),
+            ]);
+
+            $status->pause($send->campaign);
 
             return;
         } catch (Throwable $exception) {

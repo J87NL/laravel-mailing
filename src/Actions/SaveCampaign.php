@@ -71,7 +71,9 @@ class SaveCampaign
                 }
 
                 $uploads = $this->uploads($data);
-                $total = (int) $campaign->attachments()->sum('size') + array_sum(array_map(fn (UploadedFile $file): int => (int) $file->getSize(), $uploads));
+                $kept = (int) $campaign->attachments()
+                    ->sum('size');
+                $total = $kept + array_sum(array_map(fn (UploadedFile $file): int => (int) $file->getSize(), $uploads));
 
                 if ($uploads !== [] && $total > $this->attachments->maxTotalBytes()) {
                     throw ValidationException::withMessages([
