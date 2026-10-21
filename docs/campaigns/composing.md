@@ -83,7 +83,7 @@ page only shows the test form for drafts.
 
 A test send is the real message: the same layout, the list headers, the footer with an unsubscribe
 link and the driver marking, such as the VERP Return-Path of the Postfix driver. The unsubscribe
-link uses the placeholder token `preview`, which does not unsubscribe anyone.
+link uses the placeholder token `preview`, which unsubscribes no one: opening it gives a 404.
 
 ### When a test mail fails
 

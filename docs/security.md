@@ -69,8 +69,9 @@ bot, an address over its limit and a real sign-up all get the same redirect to t
 
 ### Timing
 
-One difference remains. A new or pending address queues a confirmation mail; a subscribed or
-suppressed address does not. That makes the response slightly slower for the first group. This is
+One difference remains. A new or pending address can queue a confirmation mail; a subscribed or
+suppressed address does not, and neither does a pending address that already got one within
+`resend_after_hours` or one over its per-address limit. That makes the response slightly slower for the first group. This is
 an accepted trade-off. It only holds while the queue connection is not `sync`: with `sync`, the mail
 is sent during the request and the difference becomes large.
 

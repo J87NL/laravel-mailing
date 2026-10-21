@@ -11,7 +11,8 @@ vendor/bin/pest
 
 Run the suite from a clone of the package repository. It installs `j87nl/laravel-cms` as a dev dependency to test the sign-up block. The tests
 replace the outside world through the contracts, with fakes in `tests/Fakes`: a mailbox reader, a
-DNS resolver, a spam scorer and a failing mail transport. The Lettermint payloads in
+DNS resolver, a spam scorer and several failing mail transports (SMTP refusals, rejected recipients and API
+errors). The Lettermint payloads in
 [`tests/fixtures/lettermint`](https://github.com/J87NL/laravel-mailing/tree/main/tests/fixtures/lettermint)
 are written by hand, see [Lettermint](delivery/lettermint.md#unverified-payloads).
 

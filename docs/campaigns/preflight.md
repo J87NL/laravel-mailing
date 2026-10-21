@@ -86,7 +86,7 @@ empty.
 ## Results
 
 `run(Campaign $campaign): array` and `cached(Campaign $campaign): array` return a list of
-`J87NL\Mailing\Preflight\PreflightItem`:
+`J87NL\Mailing\Preflight\PreflightItem` (excerpt; `blocks()` and `toArray()` are left out):
 
 ```php
 final readonly class PreflightItem

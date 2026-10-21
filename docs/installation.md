@@ -8,7 +8,7 @@
 - `tranquil-tools/laravel-vue-form-builder` 1.10+ and `tranquil-tools/laravel-vue-table-builder` 1.9+
   for the admin. Composer installs them as dependencies; their front-end setup is described in their
   own documentation.
-- Optional: `j87nl/laravel-cms`, which gets a [sign-up block](public/cms-block.md).
+- Optional: [`j87nl/laravel-cms`](https://github.com/J87NL/laravel-cms), which gets a [sign-up block](public/cms-block.md).
 - Optional: `lettermint/lettermint-laravel` for the [Lettermint driver](delivery/lettermint.md).
 
 ## 1. Install via Composer

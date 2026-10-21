@@ -54,10 +54,11 @@ It returns `false` when the subscription is not active.
 | `List-Unsubscribe-Post` | `List-Unsubscribe=One-Click`                             |
 
 The domain is `mailing.list_id_domain`, or the host of `app.url`. The unsubscribe URL is an absolute
-URL built from `app.url`, so `app.url` must be the public HTTPS address of the site.
+URL built by `route()`: from `app.url` in queued jobs, from the request host when a mail is sent
+during a request (a test send). `app.url` must be the public HTTPS address of the site.
 
 Campaign mails always carry these headers. Test sends and previews use the placeholder token
-`preview`, which does not belong to any subscription.
+`preview`, which does not belong to any subscription: opening it gives a 404.
 
 ### Your own mailables
 

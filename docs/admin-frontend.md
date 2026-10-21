@@ -121,11 +121,14 @@ injected under the key `confirm`:
 type MailingConfirm = (message: string) => Promise<boolean>;
 ```
 
-Provide it once in your app, for example with your own dialog:
+Provide it once in your app, backed by your own modal, for example:
 
 ```ts
-app.provide('confirm', (message: string): Promise<boolean> => Promise.resolve(window.confirm(message)));
+app.provide('confirm', (message: string): Promise<boolean> => confirmDialog.open({ message }));
 ```
+
+`confirmDialog` stands for the app's own dialog component. Do not fall back to the browser's
+`window.confirm`.
 
 Without a provider every confirmation is declined, so those actions never run.
 

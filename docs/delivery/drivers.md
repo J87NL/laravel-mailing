@@ -21,7 +21,8 @@ Return-Path, metadata or tags, and the handling of its webhooks. The driver neve
 ```
 
 The driver also decides which checks the [pre-flight](../campaigns/preflight.md) runs: the blocklist
-check and the alignment check are for Postfix only.
+check runs for Postfix only, and the alignment check is a warning (`alignment.provider`) for every
+other driver.
 
 ## Postfix
 
