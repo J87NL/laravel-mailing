@@ -5,7 +5,7 @@ declare(strict_types=1);
 return [
     'confirm' => [
         'title' => 'Aanmelding bevestigen',
-        'text' => 'Klik op de knop om je aanmelding voor :list te bevestigen.',
+        'text' => 'We bevestigen je aanmelding voor :list. Gebeurt er niets? Klik dan op de knop.',
         'button' => 'Ja, meld me aan',
     ],
     'confirmed' => [

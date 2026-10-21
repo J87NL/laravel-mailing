@@ -5,7 +5,7 @@ declare(strict_types=1);
 return [
     'confirm' => [
         'title' => 'Confirm your sign-up',
-        'text' => 'Click the button to confirm your sign-up for :list.',
+        'text' => 'We are confirming your sign-up for :list. Nothing happening? Then click the button.',
         'button' => 'Yes, sign me up',
     ],
     'confirmed' => [

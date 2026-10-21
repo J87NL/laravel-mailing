@@ -31,6 +31,7 @@ class ConfirmationController extends Controller
 
         return $this->view('confirm', $model, 200, [
             'action' => $request->fullUrl(),
+            'autoSubmitAttribute' => ConfirmationScriptController::FORM_ATTRIBUTE,
         ]);
     }
 
@@ -44,6 +45,10 @@ class ConfirmationController extends Controller
 
         if ($model->status === SubscriptionStatus::Subscribed || $confirmSubscription->handle($model, $request->ip())) {
             return $this->view('confirmed', $model->refresh());
+        }
+
+        if ($model->refresh()->status === SubscriptionStatus::Subscribed) {
+            return $this->view('confirmed', $model);
         }
 
         return $this->view('expired', $model, 410);
