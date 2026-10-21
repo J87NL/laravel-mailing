@@ -210,7 +210,7 @@ See [Drivers](delivery/drivers.md).
 | Key             | Description                                                                                    |
 | --------------- | ---------------------------------------------------------------------------------------------- |
 | `queue`         | The queue of the `SendCampaignMessage` jobs.                                                   |
-| `retry_minutes` | The delay before each retry after a temporary (4xx) failure. Three entries means three retries. |
+| `retry_minutes` | The delay before each retry after a temporary failure. Three entries means three retries.       |
 | `stale_minutes` | A send that stays in `sending` longer than this is marked `failed`.                            |
 | `scan_factor`   | Each dispatcher run looks at `throttle_per_minute × scan_factor` sends per campaign.           |
 | `domain_limits` | The maximum number of sends per minute to a recipient domain, across all lists.                |
@@ -292,6 +292,7 @@ See [Pre-flight checks](campaigns/preflight.md).
     'min_seconds' => 3,
     'max_seconds' => 172800,
     'success_query' => 'aangemeld',
+    'privacy_url' => env('MAILING_PRIVACY_URL'),
 ],
 ```
 
@@ -304,6 +305,7 @@ See [Pre-flight checks](campaigns/preflight.md).
 | `min_seconds`          | A form submitted faster than this after rendering is treated as a bot.              |
 | `max_seconds`          | A form token older than this is expired (default 48 hours).                         |
 | `success_query`        | The query parameter that marks a successful sign-up in the redirect URL.            |
+| `privacy_url`          | The privacy statement the sign-up form links to. Only `https://`, `http://` or a local path; without it the form shows no link. |
 
 See [Sign-up](public/signup.md).
 

@@ -11,6 +11,7 @@ use J87NL\Mailing\Enums\SendStatus;
 use J87NL\Mailing\Enums\SuppressionReason;
 use J87NL\Mailing\Models\Send;
 use J87NL\Mailing\Models\Suppression;
+use J87NL\Mailing\Support\EmailAddress;
 
 class ApplyDeliveryEvent
 {
@@ -42,7 +43,7 @@ class ApplyDeliveryEvent
             DeliveryEventType::Unsubscribed => is_null($send?->subscription) ? null : $this->unsubscribe->handle($send->subscription, $source),
             DeliveryEventType::SuppressionAdded => is_null($email) ? null : $this->suppressAddress->handle($email, SuppressionReason::Manual, $source, $event->diagnostic),
             DeliveryEventType::SuppressionRemoved => is_null($email) ? null : Suppression::query()
-                ->where('email', strtolower($email))
+                ->where('email', EmailAddress::normalize($email))
                 ->where('source', $source)
                 ->where('reason', SuppressionReason::Manual)
                 ->delete(),

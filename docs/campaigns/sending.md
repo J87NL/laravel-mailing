@@ -61,9 +61,9 @@ and is tried once. It:
 | Outcome                                                  | Send status   |
 | -------------------------------------------------------- | ------------- |
 | The mailer accepted the message                          | `handed_over` |
-| A transport error with a 4xx code and a retry left       | `deferred`, retried after the next delay in `mailing.sending.retry_minutes` |
-| A transport error with a 4xx code and no retry left      | `failed`      |
-| A transport error with a 5xx or other code               | `failed`      |
+| A temporary transport error and a retry left             | `deferred`, retried after the next delay in `mailing.sending.retry_minutes` |
+| A temporary transport error and no retry left            | `failed`      |
+| A final transport error                                  | `failed`      |
 | A transport error without a code                         | `failed`, response `interrupted` |
 | Any other exception                                      | `failed`      |
 
@@ -71,9 +71,16 @@ A transport error without an SMTP code fails the send instead of retrying it, be
 have been accepted before the connection broke. The default retry delays are 15 minutes, 1 hour and
 4 hours.
 
-The job reads the code the same way for every transport. The HTTP status of a mail API such as
-Lettermint is treated like an SMTP code, so a 401 is retried and a 503 is not. See
-[Lettermint](../delivery/lettermint.md#errors-from-the-api).
+Whether an error is temporary depends on the kind of code, recognised by
+`J87NL\Mailing\Mail\TransportFailure::isTemporary()` in the same way as the cause of a failed
+test send:
+
+| Transport                         | Temporary              | Final                    |
+| --------------------------------- | ---------------------- | ------------------------ |
+| SMTP reply code                   | 4xx                    | 5xx and any other code   |
+| HTTP status of a mail API         | 408, 429 and 5xx       | every other 4xx          |
+
+See [Lettermint](../delivery/lettermint.md#errors-from-the-api).
 
 ## Send statuses
 

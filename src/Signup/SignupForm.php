@@ -40,7 +40,23 @@ final readonly class SignupForm
             'subscribed' => self::succeeded($request, $list),
             'errors' => $errors ?? new MessageBag,
             'old' => $old,
+            'privacyUrl' => self::privacyUrl(),
         ];
+    }
+
+    public static function privacyUrl(): ?string
+    {
+        $url = config('mailing.signup.privacy_url');
+
+        if (! is_string($url)) {
+            return null;
+        }
+
+        if (str_starts_with($url, 'https://') || str_starts_with($url, 'http://') || self::isLocalPath($url)) {
+            return $url;
+        }
+
+        return null;
     }
 
     public static function anchor(MailingList $list): string

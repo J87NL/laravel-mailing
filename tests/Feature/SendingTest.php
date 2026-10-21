@@ -22,6 +22,7 @@ use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Sending\Dispatcher;
 use J87NL\Mailing\Sending\SendingLimits;
 use J87NL\Mailing\Sending\Verp;
+use J87NL\Mailing\Tests\Fakes\ApiFailureTransport;
 use J87NL\Mailing\Tests\Fakes\FailingTransport;
 use Symfony\Component\Mailer\SentMessage;
 use Symfony\Component\Mime\Email;
@@ -532,3 +533,42 @@ test('a job that loses the claim gives its throttle slot back', function (): voi
             ->where('key', sprintf('list:%d:minute', $this->list->id))
             ->value('hits'))->toBe(1);
 });
+
+test('an HTTP API answer is retried only for a timeout, rate limit or server error', function (int $status, SendStatus $expected): void {
+    Mail::extend('api', fn (): ApiFailureTransport => new ApiFailureTransport($status));
+    config()->set('mail.mailers.api', [
+        'transport' => 'api',
+    ]);
+
+    $this->list->update([
+        'mailer' => 'api',
+    ]);
+    makeSubscription($this->list);
+    app(StartCampaign::class)->handle(makeCampaign($this->list));
+
+    runDispatcher();
+
+    expect(Send::query()
+        ->sole()->status)->toBe($expected);
+})->with([
+    'unauthorized' => [
+        401,
+        SendStatus::Failed,
+    ],
+    'unprocessable' => [
+        422,
+        SendStatus::Failed,
+    ],
+    'timeout' => [
+        408,
+        SendStatus::Deferred,
+    ],
+    'too many requests' => [
+        429,
+        SendStatus::Deferred,
+    ],
+    'service unavailable' => [
+        503,
+        SendStatus::Deferred,
+    ],
+]);

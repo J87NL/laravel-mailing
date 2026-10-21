@@ -44,6 +44,27 @@ test('the sign-up page shows a cookie-free form with a honeypot and a signed tim
     expect($response->headers->getCookies())->toBeEmpty();
 });
 
+test('the sign-up form links the configured privacy statement', function (): void {
+    config()->set('mailing.signup.privacy_url', 'https://rommelmarkt.test/privacy');
+
+    $this->get('/mailing/nieuws/subscribe')
+        ->assertOk()
+        ->assertSee('href="https://rommelmarkt.test/privacy"', false)
+        ->assertSee(__('mailing::signup.privacy_link'));
+});
+
+test('the sign-up form leaves out the privacy link without a usable privacy URL', function (?string $url): void {
+    config()->set('mailing.signup.privacy_url', $url);
+
+    $this->get('/mailing/nieuws/subscribe')
+        ->assertOk()
+        ->assertDontSee(__('mailing::signup.privacy_link'));
+})->with([
+    'none' => [null],
+    'empty' => [''],
+    'script' => ['javascript:alert(1)'],
+]);
+
 test('a sign-up is confirmed through the signed link in the confirmation mail', function (): void {
     $response = $this->post('/mailing/nieuws/subscribe', signupPayload($this->list))
         ->assertStatus(303)

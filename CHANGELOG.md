@@ -4,6 +4,17 @@ All notable changes to this package are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- `mailing.signup.privacy_url` (`MAILING_PRIVACY_URL`): the sign-up form links to this privacy statement. Only `https://`, `http://` and local paths are used.
+
+### Fixed
+
+- The sending job tells SMTP codes and HTTP statuses apart, as the test send already did: for a mail API such as Lettermint, 408, 429 and 5xx are retried and every other 4xx fails at once. Before, a 401 or 422 was retried three times and a 503 failed at once.
+- The test-send route refuses a campaign that is no longer a draft, also when the request does not come from the campaign page.
+- Lifting a suppression through a provider webhook normalises the address the same way as adding it, so an address with capitals outside ASCII or surrounding spaces is found.
+- `mailing_bounce_events.source` is widened to 255 characters by a new migration, so the webhook source of a driver key longer than 11 characters fits.
+
 ## [0.2.0] - 2026-10-21
 
 ### Changed

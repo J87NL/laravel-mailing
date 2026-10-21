@@ -17,6 +17,7 @@ use J87NL\Mailing\Enums\SendStatus;
 use J87NL\Mailing\Enums\SubscriptionStatus;
 use J87NL\Mailing\Mail\CampaignMail;
 use J87NL\Mailing\Mail\ListHeaders;
+use J87NL\Mailing\Mail\TransportFailure;
 use J87NL\Mailing\Models\Send;
 use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Sending\Dispatcher;
@@ -140,7 +141,7 @@ class SendCampaignMessage implements ShouldQueue
             return;
         }
 
-        $temporary = $code >= 400 && $code < 500;
+        $temporary = TransportFailure::isTemporary($exception);
         $delay = $retries->delayAfter($send->attempts);
 
         if (! $temporary || is_null($delay)) {
