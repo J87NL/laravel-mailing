@@ -21,6 +21,7 @@
 - Delivery
     - [Drivers](delivery/drivers.md)
     - [Lettermint](delivery/lettermint.md)
+    - [Postfix delivery log](delivery/postfix.md)
     - [Bounces](delivery/bounces.md)
 - Reference
     - [Contracts](contracts.md)

@@ -14,7 +14,10 @@ replace the outside world through the contracts, with fakes in `tests/Fakes`: a 
 DNS resolver, a spam scorer and several failing mail transports (SMTP refusals, rejected recipients and API
 errors). The Lettermint payloads in
 [`tests/fixtures/lettermint`](https://github.com/J87NL/laravel-mailing/tree/main/tests/fixtures/lettermint)
-are written by hand, see [Lettermint](delivery/lettermint.md#unverified-payloads).
+are written by hand, see [Lettermint](delivery/lettermint.md#unverified-payloads). So are the
+Postfix log lines in `tests/fixtures/postfix` and `tests/Feature/PostfixLogTest.php`, after the
+format Postfix documents; the Postfix log tests feed lines through a fake `PostfixLogReader` or
+through temporary files.
 
 The `tests` directory is only in the package repository; it is not part of the installed package.
 

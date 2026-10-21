@@ -49,6 +49,7 @@ return [
     ],
     'transport' => [
         'postfix' => 'This list sends through the own Postfix. "Handed over" means Postfix accepted the mail; delivery is never known, only bounces come back. No transport reports inbox versus spam folder.',
+        'postfix_log' => 'This list sends through the own Postfix, and the package reads its mail log. "Delivered" means the receiving mail server accepted the mail, "Deferred" that Postfix is still retrying, "Bounced" that the receiving server refused it for good. No transport reports inbox versus spam folder.',
         'provider' => 'This list sends through an API provider. Deliveries, bounces and complaints come back through the webhook. No transport reports inbox versus spam folder.',
     ],
     'actions' => [

@@ -18,9 +18,11 @@ use J87NL\Mailing\Cms\SignupBlock;
 use J87NL\Mailing\Console\DispatchSends;
 use J87NL\Mailing\Console\ProcessBounces;
 use J87NL\Mailing\Console\PruneMailingData;
+use J87NL\Mailing\Console\ReadPostfixLog;
 use J87NL\Mailing\Contracts\DnsResolver;
 use J87NL\Mailing\Contracts\HtmlSanitizer;
 use J87NL\Mailing\Contracts\MailboxReader;
+use J87NL\Mailing\Contracts\PostfixLogReader;
 use J87NL\Mailing\Contracts\SenderIdentityProvider;
 use J87NL\Mailing\Contracts\SpamScorer;
 use J87NL\Mailing\Models\MailingList;
@@ -34,6 +36,7 @@ class MailingServiceProvider extends ServiceProvider
 
         $this->app->singleton(SenderIdentityProvider::class, fn (Application $app): SenderIdentityProvider => $app->make((string) config('mailing.sender_identity_provider')));
         $this->app->singleton(MailboxReader::class, fn (Application $app): MailboxReader => $app->make((string) config('mailing.mailbox_reader')));
+        $this->app->singleton(PostfixLogReader::class, fn (Application $app): PostfixLogReader => $app->make((string) config('mailing.postfix_log.reader')));
         $this->app->singleton(HtmlSanitizer::class, fn (Application $app): HtmlSanitizer => $app->make((string) config('mailing.html_sanitizer')));
         $this->app->singleton(DnsResolver::class, fn (Application $app): DnsResolver => $app->make((string) config('mailing.preflight.dns_resolver')));
         $this->app->singleton(SpamScorer::class, fn (Application $app): SpamScorer => $app->make((string) config('mailing.preflight.spam_scorer')));
@@ -73,6 +76,7 @@ class MailingServiceProvider extends ServiceProvider
                 DispatchSends::class,
                 ProcessBounces::class,
                 PruneMailingData::class,
+                ReadPostfixLog::class,
             ]);
         }
 
@@ -92,6 +96,12 @@ class MailingServiceProvider extends ServiceProvider
             $schedule->command(PruneMailingData::class)
                 ->dailyAt('03:15')
                 ->withoutOverlapping(60);
+
+            if (filled(config('mailing.postfix_log.path'))) {
+                $schedule->command(ReadPostfixLog::class)
+                    ->everyMinute()
+                    ->withoutOverlapping(10);
+            }
         });
 
         $this->publishes([

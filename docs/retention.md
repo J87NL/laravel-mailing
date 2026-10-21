@@ -29,8 +29,12 @@ list.
 
 ## Send records
 
-Send records, bounce events and processed webhook and bounce report ids older than
+Send records, bounce events and processed webhook, bounce report and Postfix log ids older than
 `send_records_months` (13) months are deleted.
+
+Postfix queue ids of your sends are not kept that long: `mailing:read-postfix-log` deletes them when
+Postfix logs `removed`, or `mailing.postfix_log.queue_ttl_hours` (48) after its last `deferred` line. See
+[Postfix delivery log](delivery/postfix.md#privacy).
 
 ## Subscribers
 

@@ -29,6 +29,9 @@ class ApplyDeliveryEvent
         match ($event->type) {
             DeliveryEventType::Delivered => $this->update($send, SendStatus::Delivered, [
                 'delivered_at' => now(),
+                ...is_null($event->diagnostic) ? [] : [
+                    'last_response' => $event->diagnostic,
+                ],
             ]),
             DeliveryEventType::Deferred => $this->update($send, SendStatus::Deferred, [
                 'next_attempt_at' => null,

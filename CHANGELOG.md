@@ -4,6 +4,15 @@ All notable changes to this package are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Optional delivery results from Postfix's own log. With `mailing.postfix_log.path` (`MAILING_POSTFIX_LOG_PATH`) set, `mailing:read-postfix-log` runs every minute, reads the new lines of the log, follows rotation to `<path>.1` and moves a Postfix send from `handed_over` to `delivered`, `deferred` or `bounced` through the same rules as webhooks and bounce messages. A message that expired in the Postfix queue counts as a soft bounce and fails the send. Only lines of the package's own sends, matched by Message-ID, are stored. `--file` and `-` read a file or standard input once, for backfills and journald-only hosts. Two new tables: `mailing_postfix_log_cursors` and `mailing_postfix_queue_ids`. See `docs/delivery/postfix.md` for the host setup.
+- A `Delivered` event stores the reply of the receiving server, when the event carries one, as the last response of the send. The send list on the campaign page shortens long responses to 160 characters.
+
+### Changed
+
+- Cancelling a campaign no longer cancels a `deferred` send that was handed over: the provider or Postfix is still retrying it, so it can still be delivered.
+
 ## [0.2.2] - 2026-10-21
 
 ### Added

@@ -96,7 +96,7 @@ See [Lettermint](../delivery/lettermint.md#errors-from-the-api).
 | `sending`     | Claimed by a job                                                  |
 | `handed_over` | Accepted by the mailer                                            |
 | `deferred`    | Temporary failure or soft bounce                                  |
-| `delivered`   | Delivery reported by the provider                                 |
+| `delivered`   | Delivery reported by the provider, or by the Postfix log          |
 | `bounced`     | Hard bounce, or the soft bounce that suppressed the address       |
 | `complained`  | Spam complaint                                                    |
 | `failed`      | Permanent failure, interrupted or stale                           |
@@ -108,12 +108,18 @@ Delivery events never move a send backwards. Every status has a rank (`SendStatu
 `complained` > `bounced` > `delivered` > `failed` > `deferred` > `handed_over` > the rest. A late
 "delivered" event cannot undo a bounce.
 
+With your own Postfix, a send stays `handed_over` unless the package reads Postfix's log. With
+`mailing.postfix_log.path` set, `mailing:read-postfix-log` moves it on to `delivered`, `deferred` or
+`bounced`, and the campaign page shows the reply of the receiving server. See
+[Postfix delivery log](../delivery/postfix.md).
+
 ## Pause, resume and cancel
 
 - **Pause** stops releasing sends. Jobs already dispatched see the status and give back their slot.
 - **Resume** continues releasing.
-- **Cancel** cancels every `queued` and `deferred` send. Sends that were handed over stay as they
-  are.
+- **Cancel** cancels every `queued` and `deferred` send that was never handed over. Sends that were
+  handed over stay as they are, also when the provider or Postfix reported them `deferred` and is
+  still retrying.
 
 ## Retrying failed sends
 

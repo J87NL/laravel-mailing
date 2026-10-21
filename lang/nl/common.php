@@ -15,5 +15,6 @@ return [
         'dsn' => 'Bouncebericht',
         'webhook' => 'Melding van :detail',
         'unsubscribe-page' => 'Afmeldpagina',
+        'postfix-log' => 'Maillog van Postfix',
     ],
 ];
