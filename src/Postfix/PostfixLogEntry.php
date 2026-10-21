@@ -11,9 +11,9 @@ final readonly class PostfixLogEntry
         public string $queueId,
         public ?string $messageId = null,
         public ?string $recipient = null,
+        public ?string $originalRecipient = null,
         public ?string $status = null,
         public ?string $dsn = null,
-        public ?string $relay = null,
         public ?string $reply = null,
     ) {}
 }

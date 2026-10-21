@@ -13,6 +13,7 @@ use J87NL\Mailing\Models\PostfixQueueId;
 use J87NL\Mailing\Models\Send;
 use J87NL\Mailing\Models\WebhookEvent;
 use J87NL\Mailing\Support\ConsentSource;
+use J87NL\Mailing\Support\EmailAddress;
 
 class PostfixLogProcessor
 {
@@ -67,17 +68,18 @@ class PostfixLogProcessor
             ->where('message_id', $entry->messageId)
             ->exists();
 
-        $this->forget($entry->queueId);
-
         if (! $known) {
             return;
         }
 
         PostfixQueueId::query()
-            ->create([
+            ->updateOrCreate([
                 'queue_id' => $entry->queueId,
+            ], [
                 'message_id' => $entry->messageId,
             ]);
+
+        $this->touch($entry->queueId);
     }
 
     private function forget(string $queueId): void
@@ -85,6 +87,15 @@ class PostfixLogProcessor
         PostfixQueueId::query()
             ->where('queue_id', $queueId)
             ->delete();
+    }
+
+    private function touch(string $queueId): void
+    {
+        PostfixQueueId::query()
+            ->where('queue_id', $queueId)
+            ->update([
+                'created_at' => now(),
+            ]);
     }
 
     private function apply(PostfixLogEntry $entry): bool
@@ -99,35 +110,76 @@ class PostfixLogProcessor
             return false;
         }
 
-        $event = new DeliveryEvent(
-            type: $type,
-            eventId: hash('sha256', implode("\n", [
-                $entry->queueId,
-                $entry->status,
-                $entry->recipient,
-                $entry->dsn,
-                $entry->reply,
-            ])),
-            messageId: $messageId,
-            diagnostic: $this->diagnostic($entry),
-        );
+        $send = Send::query()
+            ->where('message_id', $messageId)
+            ->first();
+
+        if (is_null($send) || ! $this->isRecipientOf($entry, $send)) {
+            return false;
+        }
+
+        if ($type === DeliveryEventType::Deferred) {
+            $this->touch($entry->queueId);
+        }
+
+        $eventId = hash('sha256', implode("\n", [
+            $messageId,
+            $entry->queueId,
+            $entry->status,
+            $entry->recipient,
+            $entry->dsn,
+            $entry->reply,
+        ]));
 
         try {
-            DB::transaction(function () use ($event, $entry): void {
+            DB::transaction(function () use ($eventId, $entry, $send, $type): void {
                 WebhookEvent::query()
                     ->create([
                         'driver' => self::DRIVER,
-                        'event_id' => $event->eventId,
+                        'event_id' => $eventId,
                         'event' => (string) $entry->status,
                     ]);
 
-                $this->applyDeliveryEvent->handle($event, ConsentSource::make(ConsentSource::POSTFIX_LOG));
+                $source = ConsentSource::make(ConsentSource::POSTFIX_LOG);
+
+                $this->applyDeliveryEvent->handle($this->event($type, $eventId, $send, $entry), $source);
+
+                if ($entry->type === PostfixLogEntryType::Expired) {
+                    $this->applyDeliveryEvent->handle($this->event(DeliveryEventType::Failed, $eventId, $send, $entry), $source);
+                }
             });
         } catch (UniqueConstraintViolationException) {
             return false;
         }
 
         return true;
+    }
+
+    private function event(DeliveryEventType $type, string $eventId, Send $send, PostfixLogEntry $entry): DeliveryEvent
+    {
+        return new DeliveryEvent(
+            type: $type,
+            eventId: $eventId,
+            sendId: $send->id,
+            diagnostic: $this->diagnostic($entry),
+        );
+    }
+
+    private function isRecipientOf(PostfixLogEntry $entry, Send $send): bool
+    {
+        if ($entry->type === PostfixLogEntryType::Expired) {
+            return true;
+        }
+
+        $email = EmailAddress::normalize($send->email);
+
+        return in_array($email, array_map(
+            fn (string $address): string => EmailAddress::normalize($address),
+            array_filter([
+                $entry->recipient,
+                $entry->originalRecipient,
+            ], fn (?string $address): bool => ! is_null($address)),
+        ), true);
     }
 
     private function type(PostfixLogEntry $entry): ?DeliveryEventType

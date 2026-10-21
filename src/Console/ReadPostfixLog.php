@@ -22,8 +22,15 @@ class ReadPostfixLog extends Command
     public function handle(PostfixLogReader $reader, PostfixLogProcessor $processor): int
     {
         $file = $this->option('file');
+        $source = $this->argument('source');
 
-        if ($this->argument('source') === self::STANDARD_INPUT) {
+        if (! is_null($source) && $source !== self::STANDARD_INPUT) {
+            $this->error('Use - to read standard input, or --file to read a file.');
+
+            return self::INVALID;
+        }
+
+        if ($source === self::STANDARD_INPUT) {
             return $this->once('php://stdin', $processor);
         }
 
@@ -53,7 +60,7 @@ class ReadPostfixLog extends Command
         }
 
         try {
-            return $this->report($processor->process(FilePostfixLogReader::stream($handle)));
+            return $this->report($processor->process(FilePostfixLogReader::stream($handle, completeLinesOnly: false)));
         } finally {
             fclose($handle);
         }

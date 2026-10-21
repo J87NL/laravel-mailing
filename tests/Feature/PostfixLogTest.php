@@ -126,7 +126,7 @@ test('a bounce with a temporary status code counts as a soft bounce', function (
             ->count())->toBe(0);
 });
 
-test('an expired message counts as a soft bounce', function (): void {
+test('an expired message counts as a soft bounce and fails the send', function (): void {
     $send = handedOverSend();
     $reader = fakePostfixLog();
 
@@ -139,7 +139,90 @@ test('an expired message counts as a soft bounce', function (): void {
     expect(BounceEvent::query()
         ->sole()->type)->toBe(BounceType::Soft)
         ->and(BounceEvent::query()
-            ->sole()->diagnostic)->toBe('expired, returned to sender');
+            ->sole()->diagnostic)->toBe('expired, returned to sender')
+        ->and($send->fresh()->status)->toBe(SendStatus::Failed);
+});
+
+test('a delivery line for another recipient of a known message is ignored', function (): void {
+    $send = handedOverSend();
+    $reader = fakePostfixLog();
+
+    $reader->lines = [
+        postfixLine('postfix/cleanup', sprintf('7D3E21F4A2: message-id=%s', $send->message_id)),
+        postfixLine('postfix/smtp', '7D3E21F4A2: to=<someone-else@example.net>, relay=mx.example.net[203.0.113.8]:25, dsn=5.1.1, status=bounced (550 5.1.1 User unknown)'),
+    ];
+    readPostfixLog();
+
+    expect($send->fresh()->status)->toBe(SendStatus::HandedOver)
+        ->and(Suppression::query()
+            ->count())->toBe(0);
+});
+
+test('a delivery line for the original recipient of a rewritten address is applied', function (): void {
+    $send = handedOverSend();
+    $reader = fakePostfixLog();
+
+    $reader->lines = [
+        postfixLine('postfix/cleanup', sprintf('7D3E21F4A2: message-id=%s', $send->message_id)),
+        postfixLine('postfix/smtp', sprintf('7D3E21F4A2: to=<rewritten@example.net>, orig_to=<%s>, relay=mx.example.net[203.0.113.8]:25, dsn=2.0.0, status=sent (250 2.0.0 Ok)', strtoupper($send->email))),
+    ];
+    readPostfixLog();
+
+    expect($send->fresh()->status)->toBe(SendStatus::Delivered);
+});
+
+test('an RFC 5424 line whose app name has no slash is read', function (): void {
+    $send = handedOverSend();
+    $reader = fakePostfixLog();
+
+    $reader->lines = [
+        sprintf('<22>1 2026-10-21T10:15:00+02:00 vps postfix 2202 - - 7D3E21F4A2: message-id=%s', $send->message_id),
+        sprintf('<22>1 2026-10-21T10:15:01+02:00 vps postfix 2203 - - 7D3E21F4A2: to=<%s>, relay=mx.example.org[203.0.113.5]:25, dsn=2.0.0, status=sent (250 2.0.0 Ok)', $send->email),
+    ];
+    readPostfixLog();
+
+    expect($send->fresh()->status)->toBe(SendStatus::Delivered);
+});
+
+test('Postfix text inside the line of another program is ignored', function (): void {
+    $send = handedOverSend();
+    $reader = fakePostfixLog();
+
+    $reader->lines = [
+        sprintf('Oct 21 10:15:00 vps dovecot[812]: imap(x): said postfix/cleanup[9]: AAAAAA: message-id=%s', $send->message_id),
+        sprintf('Oct 21 10:15:01 vps dovecot[812]: imap(x): said postfix/smtp[9]: AAAAAA: to=<%s>, dsn=5.1.1, status=bounced (550 5.1.1 User unknown)', $send->email),
+    ];
+    readPostfixLog();
+
+    expect($send->fresh()->status)->toBe(SendStatus::HandedOver)
+        ->and(PostfixQueueId::query()
+            ->count())->toBe(0);
+});
+
+test('every deferred line keeps the queue id of a long retried message', function (): void {
+    $send = handedOverSend();
+    $reader = fakePostfixLog();
+    [$cleanup, $deferred] = postfixDelivery($send, '7D3E21F4A2', 'dsn=4.4.1, status=deferred (connect to mx.example.org[203.0.113.5]:25: Connection timed out)');
+    [, $sent] = postfixDelivery($send, '7D3E21F4A2', 'dsn=2.0.0, status=sent (250 2.0.0 Ok)');
+
+    $reader->lines = [
+        $cleanup,
+    ];
+    readPostfixLog();
+
+    $this->travel(40)->hours();
+    $reader->lines = [
+        $deferred,
+    ];
+    readPostfixLog();
+
+    $this->travel(40)->hours();
+    $reader->lines = [
+        $sent,
+    ];
+    readPostfixLog();
+
+    expect($send->fresh()->status)->toBe(SendStatus::Delivered);
 });
 
 test('lines of other mail on the server are never stored or applied', function (): void {

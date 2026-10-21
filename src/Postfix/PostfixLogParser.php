@@ -8,11 +8,13 @@ class PostfixLogParser
 {
     private const string PROGRAM = 'postfix[\w.-]*\/[\w.\/-]+';
 
-    private const string SYSLOG = '/(?:^|\s)'.self::PROGRAM.'\[\d+\]:\s+(?<message>.+)$/';
+    private const string APP_NAME = 'postfix[\w.-]*(?:\/[\w.\/-]+)?';
 
-    private const string RFC5424 = '/^(?:<\d{1,3}>)?1\s+\S+\s+\S+\s+'.self::PROGRAM.'\s+\S+\s+\S+\s+(?:-|(?:\[.*?\])+)\s+(?:\xEF\xBB\xBF)?(?<message>.+)$/';
+    private const string SYSLOG = '/^(?:<\d{1,3}>)?(?:\S+\s+){2,4}'.self::PROGRAM.'\[\d+\]:\s+(?<message>.+)$/';
 
-    private const string QUEUE_ID = '/^(?<queue>[0-9A-Za-z]{5,20}):\s+(?<rest>.+)$/';
+    private const string RFC5424 = '/^(?:<\d{1,3}>)?1\s+\S+\s+\S+\s+'.self::APP_NAME.'\s+\S+\s+\S+\s+(?:-|(?:\[.*?\])+)\s+(?:\xEF\xBB\xBF)?(?<message>.+)$/';
+
+    private const string QUEUE_ID = '/^(?<queue>(?=[0-9a-z]*[0-9A-Z])[0-9A-Za-z]{5,20}):\s+(?<rest>.+)$/';
 
     private const string MESSAGE_ID = '/^message-id=<?(?<id>[^<>\s]+)>?/';
 
@@ -39,18 +41,18 @@ class PostfixLogParser
             return new PostfixLogEntry(PostfixLogEntryType::Removed, $queueId);
         }
 
-        if (preg_match(self::MESSAGE_ID, $rest, $id) === 1) {
-            return new PostfixLogEntry(PostfixLogEntryType::MessageId, $queueId, messageId: sprintf('<%s>', $id['id']));
+        if (preg_match(self::MESSAGE_ID, $rest, $messageIdMatch) === 1) {
+            return new PostfixLogEntry(PostfixLogEntryType::MessageId, $queueId, messageId: sprintf('<%s>', $messageIdMatch['id']));
         }
 
         if (preg_match(self::DELIVERY, $rest, $delivery) === 1) {
             return new PostfixLogEntry(
                 type: PostfixLogEntryType::Delivery,
                 queueId: $queueId,
-                recipient: strtolower($delivery['to']),
+                recipient: $delivery['to'],
+                originalRecipient: $this->address($delivery['fields'], 'orig_to'),
                 status: $delivery['status'],
                 dsn: $this->field($delivery['fields'], 'dsn'),
-                relay: $this->field($delivery['fields'], 'relay'),
                 reply: isset($delivery['reply']) && trim($delivery['reply']) !== '' ? trim($delivery['reply']) : null,
             );
         }
@@ -69,6 +71,15 @@ class PostfixLogParser
         }
 
         return null;
+    }
+
+    private function address(string $fields, string $name): ?string
+    {
+        if (preg_match(sprintf('/(?:^|,)\s*%s=<(?<value>[^>]*)>/', preg_quote($name, '/')), $fields, $matches) !== 1) {
+            return null;
+        }
+
+        return $matches['value'];
     }
 
     private function field(string $fields, string $name): ?string
