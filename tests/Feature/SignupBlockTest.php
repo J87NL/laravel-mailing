@@ -56,6 +56,20 @@ test('the sign-up block renders a form for its list that returns to the page', f
         ->assertSee(__('mailing::signup.check_inbox'));
 });
 
+test('the sign-up block links the configured privacy statement', function (): void {
+    config()->set('mailing.signup.privacy_url', '/privacy');
+
+    pageWithSignupBlock([
+        'list' => 'nieuws',
+        'title' => 'Blijf op de hoogte',
+    ]);
+
+    $this->get('/nieuwsbrief')
+        ->assertOk()
+        ->assertSee('href="/privacy"', false)
+        ->assertSee(__('mailing::signup.privacy_link'));
+});
+
 test('the sign-up block only accepts public lists', function (): void {
     makeList([
         'key' => 'intern',

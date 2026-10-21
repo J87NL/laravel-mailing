@@ -148,6 +148,7 @@ return [
         'min_seconds' => 3,
         'max_seconds' => 172800,
         'success_query' => 'aangemeld',
+        'privacy_url' => env('MAILING_PRIVACY_URL'),
     ],
 
     'confirmation' => [

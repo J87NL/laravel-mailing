@@ -64,11 +64,9 @@ as a timeout, 429 as a request to try again later, another 4xx as rejected and a
 that is temporarily unavailable. See
 [Composing campaigns](../campaigns/composing.md#when-a-test-mail-fails).
 
-**Known limitation:** the sending job does not make this distinction yet. For every transport it
-retries a 4xx code as temporary and fails a 5xx code for good, see
-[Sending](../campaigns/sending.md). For an HTTP transport that means a 401 or 403 is retried until
-the retries run out, and a temporary 5xx is not retried. This is a follow-up, not fixed in this
-version.
+The sending job uses the same recognition to decide on a retry: for an HTTP transport, 408, 429 and
+every 5xx are temporary and retried, and every other 4xx, such as 401 or 422, fails the send at
+once. See [Sending](../campaigns/sending.md).
 
 ## Webhook signature
 

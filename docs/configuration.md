@@ -210,7 +210,7 @@ See [Drivers](delivery/drivers.md).
 | Key             | Description                                                                                    |
 | --------------- | ---------------------------------------------------------------------------------------------- |
 | `queue`         | The queue of the `SendCampaignMessage` jobs.                                                   |
-| `retry_minutes` | The delay before each retry after a temporary (4xx) failure. Three entries means three retries. |
+| `retry_minutes` | The delay before each retry after a temporary failure. Three entries means three retries.       |
 | `stale_minutes` | A send that stays in `sending` longer than this is marked `failed`.                            |
 | `scan_factor`   | Each dispatcher run looks at `throttle_per_minute × scan_factor` sends per campaign.           |
 | `domain_limits` | The maximum number of sends per minute to a recipient domain, across all lists.                |
@@ -292,6 +292,7 @@ See [Pre-flight checks](campaigns/preflight.md).
     'min_seconds' => 3,
     'max_seconds' => 172800,
     'success_query' => 'aangemeld',
+    'privacy_url' => env('MAILING_PRIVACY_URL'),
 ],
 ```
 
@@ -304,8 +305,11 @@ See [Pre-flight checks](campaigns/preflight.md).
 | `min_seconds`          | A form submitted faster than this after rendering is treated as a bot.              |
 | `max_seconds`          | A form token older than this is expired (default 48 hours).                         |
 | `success_query`        | The query parameter that marks a successful sign-up in the redirect URL.            |
+| `privacy_url`          | The privacy statement the sign-up form links to: a local path starting with one `/` (query and fragment allowed) or an `http`/`https` URL with a host, trimmed. Anything else, or no value, shows no link. See [Sign-up](public/signup.md). |
 
 See [Sign-up](public/signup.md).
+
+A host that published `config/mailing.php` before 0.2.2 has its own `signup` array. Laravel merges package config only one level deep, so add `'privacy_url' => env('MAILING_PRIVACY_URL'),` to that array yourself, or `MAILING_PRIVACY_URL` has no effect.
 
 ## Confirmation
 

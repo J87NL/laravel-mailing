@@ -75,7 +75,8 @@ Once the campaign has started, it shows the send records with their status and l
 ## Test sends
 
 A test send goes to up to five addresses, separated by commas, semicolons or spaces. The campaign
-page only shows the test form for drafts.
+page only shows the test form for drafts, and the test route refuses any other campaign with the
+`campaign` error that names its status.
 
 - Suppressed addresses are skipped. When all are suppressed, nothing is sent.
 - Each admin can send at most ten test mails per hour.

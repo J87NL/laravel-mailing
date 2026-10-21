@@ -43,6 +43,17 @@ class TransportFailure
         return self::describeSmtpCode($code);
     }
 
+    public static function isTemporary(TransportExceptionInterface $exception): bool
+    {
+        $code = (int) $exception->getCode();
+
+        if (self::carriesHttpStatus($exception)) {
+            return $code === self::HTTP_TIMEOUT_STATUS || $code === self::HTTP_TOO_MANY_REQUESTS_STATUS || ($code >= 500 && $code < 600);
+        }
+
+        return $code >= 400 && $code < 500;
+    }
+
     private static function carriesHttpStatus(TransportExceptionInterface $exception): bool
     {
         if ($exception instanceof HttpTransportException) {

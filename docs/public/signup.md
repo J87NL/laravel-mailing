@@ -15,6 +15,15 @@ The form has an email address (required, up to 254 characters) and a name (optio
 characters). Below the fields it shows the consent wording from `mailing::signup.consent`. That
 exact text is stored on the `requested` consent record.
 
+When `mailing.signup.privacy_url` (`MAILING_PRIVACY_URL`) is set, the form links to that privacy
+statement below the consent wording. The value is trimmed and then used when it is either:
+
+- a local path that starts with one `/`, such as `/privacy`, `/privacy#cookies` or
+  `/privacy?lang=en`, without whitespace; `//host` and `/\host` are refused, or
+- an absolute URL with the scheme `http` or `https` (in any case) and a host.
+
+Anything else leaves the link out. The link is not part of the stored consent wording.
+
 ## No session, no CSRF
 
 The public routes run without the `web` middleware group. The form sets no cookie and needs no

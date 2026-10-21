@@ -44,6 +44,56 @@ test('the sign-up page shows a cookie-free form with a honeypot and a signed tim
     expect($response->headers->getCookies())->toBeEmpty();
 });
 
+test('the sign-up form links the configured privacy statement', function (string $configured, string $href): void {
+    config()->set('mailing.signup.privacy_url', $configured);
+
+    $this->get('/mailing/nieuws/subscribe')
+        ->assertOk()
+        ->assertSee(sprintf('href="%s"', e($href)), false)
+        ->assertSee(__('mailing::signup.privacy_link'));
+})->with([
+    'https' => [
+        'https://rommelmarkt.test/privacy',
+        'https://rommelmarkt.test/privacy',
+    ],
+    'upper-case scheme' => [
+        'HTTPS://rommelmarkt.test/privacy',
+        'HTTPS://rommelmarkt.test/privacy',
+    ],
+    'surrounding spaces' => [
+        ' https://rommelmarkt.test/privacy ',
+        'https://rommelmarkt.test/privacy',
+    ],
+    'local path' => [
+        '/privacy',
+        '/privacy',
+    ],
+    'local path with a fragment' => [
+        '/privacy#cookies',
+        '/privacy#cookies',
+    ],
+    'local path with a query' => [
+        '/privacy?lang=en',
+        '/privacy?lang=en',
+    ],
+]);
+
+test('the sign-up form leaves out the privacy link without a usable privacy URL', function (?string $url): void {
+    config()->set('mailing.signup.privacy_url', $url);
+
+    $this->get('/mailing/nieuws/subscribe')
+        ->assertOk()
+        ->assertDontSee(__('mailing::signup.privacy_link'));
+})->with([
+    'none' => [null],
+    'empty' => [''],
+    'script' => ['javascript:alert(1)'],
+    'protocol-relative' => ['//evil.example/privacy'],
+    'backslash' => ['/\\evil.example/privacy'],
+    'scheme without host' => ['http://'],
+    'relative path' => ['privacy'],
+]);
+
 test('a sign-up is confirmed through the signed link in the confirmation mail', function (): void {
     $response = $this->post('/mailing/nieuws/subscribe', signupPayload($this->list))
         ->assertStatus(303)

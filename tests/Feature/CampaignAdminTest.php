@@ -205,6 +205,37 @@ test('a test mail goes only to the entered addresses and creates no sends', func
     ])->assertSessionHasErrors('recipients');
 });
 
+test('a test mail is refused for a campaign that is no longer a draft', function (CampaignStatus $status): void {
+    $campaign = makeCampaign($this->list);
+    $campaign->forceFill([
+        'status' => $status,
+    ])->save();
+
+    $this->actingWithPermissions([
+        MailingPermission::CampaignsEdit->value,
+        MailingPermission::CampaignsSend->value,
+    ]);
+
+    $this->post(route('mailing.campaigns.test', $campaign), [
+        'recipients' => 'test@example.org',
+    ])
+        ->assertRedirect(route('mailing.campaigns.show', $campaign))
+        ->assertSessionHasErrors([
+            'campaign' => __('mailing::campaigns.errors.status', [
+                'status' => $status->label(),
+            ]),
+        ]);
+
+    expect(sentMessages())->toHaveCount(0)
+        ->and(RateLimiter::attempts(sprintf('mailing-test-send:%d', auth()->id())))->toBe(0);
+})->with([
+    'scheduled' => [CampaignStatus::Scheduled],
+    'sending' => [CampaignStatus::Sending],
+    'paused' => [CampaignStatus::Paused],
+    'sent' => [CampaignStatus::Sent],
+    'cancelled' => [CampaignStatus::Cancelled],
+]);
+
 test('a test mail that the mail server refuses shows the cause instead of an error page', function (string $transport, string $cause): void {
     Exceptions::fake();
     Mail::extend('broken', fn (): AbstractTransport => new $transport);

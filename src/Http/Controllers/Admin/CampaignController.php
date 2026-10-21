@@ -242,6 +242,10 @@ class CampaignController extends Controller
 
     public function test(Request $request, Campaign $campaign, DriverRegistry $drivers): RedirectResponse
     {
+        if (! $campaign->isEditable()) {
+            return $this->locked($campaign);
+        }
+
         $validated = TestSendForm::make()->validate($request);
         $recipients = array_values(array_filter(array_map('trim', preg_split('/[\s,;]+/', (string) $validated['recipients']) ?: [])));
 
