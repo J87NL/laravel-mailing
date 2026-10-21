@@ -4,6 +4,8 @@ All notable changes to this package are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-21
+
 ### Added
 
 - Optional delivery results from Postfix's own log. With `mailing.postfix_log.path` (`MAILING_POSTFIX_LOG_PATH`) set, `mailing:read-postfix-log` runs every minute, reads the new lines of the log, follows rotation to `<path>.1` and moves a Postfix send from `handed_over` to `delivered`, `deferred` or `bounced` through the same rules as webhooks and bounce messages. A message that expired in the Postfix queue counts as a soft bounce and fails the send. Only lines of the package's own sends, matched by Message-ID, are stored. `--file` and `-` read a file or standard input once, for backfills and journald-only hosts. Two new tables: `mailing_postfix_log_cursors` and `mailing_postfix_queue_ids`. See `docs/delivery/postfix.md` for the host setup.
@@ -58,6 +60,7 @@ All notable changes to this package are documented here. The format follows [Kee
 - Drivers for Postfix (VERP bounces, DSN parsing) and Lettermint (signed webhooks).
 - A sign-up block for `j87nl/laravel-cms`.
 
+[0.2.3]: https://github.com/J87NL/laravel-mailing/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/J87NL/laravel-mailing/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/J87NL/laravel-mailing/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/J87NL/laravel-mailing/compare/v0.1.1...v0.2.0
