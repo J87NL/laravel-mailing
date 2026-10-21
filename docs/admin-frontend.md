@@ -19,6 +19,9 @@ this.
 
 The component names come from `mailing.pages`. Point a key at a page of your own to replace it.
 
+`mailing.home` renders no page: it redirects to the first section the user may open. See
+[Permissions and navigation](permissions.md#the-host-menu-item).
+
 ## 1. Install the form and table builders
 
 The pages import `@form-builder/...` and `@table-builder/...`. Set up both packages as their own
@@ -56,7 +59,8 @@ For type checking, map the same path in `tsconfig.json`:
 ## 3. Resolve the pages and give them a layout
 
 Add the package pages to your Inertia resolver under the `mailing/` prefix. The pages set no layout
-of their own and render no breadcrumbs or toasts. Give them a persistent layout in the resolver;
+of their own and render no breadcrumbs or toasts. They do render the module submenu, see
+[below](#the-module-submenu). Give them a persistent layout in the resolver;
 that layout shows the breadcrumbs and the toasts described
 [below](#what-the-pages-expect-from-your-application). For example, with your own `AdminLayout.vue`:
 
@@ -141,7 +145,32 @@ Success messages are sent as Inertia flash data under `mailing.toast_flash_key` 
 The pages do not render them; your layout must read that flash key and show the message.
 
 Errors come back as regular validation errors. The pages show those for their own keys (`list`,
-`campaign`, `recipients`, `import`) above the content.
+`campaign`, `recipients`, `import`) above the content. A failed test send also comes back as a
+`recipients` error, see [Composing campaigns](campaigns/composing.md#when-a-test-mail-fails).
+
+### The module submenu
+
+Every page wraps its content in `MailingLayout` (`@mailing/components/MailingLayout.vue`). It is a
+component inside the page, not an Inertia layout, so it sits within your own layout. It shows the
+submenu next to the content, or above it on small screens, and marks the active section with
+`aria-current="page"`.
+
+The items come from the shared Inertia prop `mailingNavigation`, which the admin routes set with
+the `ShareMailingNavigation` middleware:
+
+```ts
+type MailingNavigationItem = {
+    key: string;
+    title: string;
+    href: string;
+    active: boolean;
+};
+```
+
+`title` is already translated and `href` is a relative URL. The prop only holds the sections the
+user may open, and it is empty without a user. With no items the submenu is not rendered. Your
+own sidebar shows the single `mailing` menu item, see
+[Permissions and navigation](permissions.md#navigation).
 
 ## Campaign page polling
 
@@ -160,3 +189,4 @@ While a campaign has the status `sending`, its page reloads `campaign`, `counts`
 | `MailingAction`         | A campaign action button                          |
 | `MailingPreflightItem`  | One pre-flight check result                       |
 | `MailingCampaign`       | The campaign summary on the campaign page         |
+| `MailingNavigationItem` | One item of the `mailingNavigation` prop          |

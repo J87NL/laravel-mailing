@@ -3,14 +3,16 @@
 A Laravel package for mailing lists: double opt-in sign-up, consent records, one-click unsubscribe
 (RFC 8058), a global suppression list, CSV imports and campaigns sent through a slow, throttled queue.
 
-The public pages (sign-up, confirmation, unsubscribe) are plain Blade. They set no cookies and load
-no JavaScript. The admin is Inertia and Vue, built on the TranquilTools form and table builders.
+The public pages (sign-up, confirmation, unsubscribe) are plain Blade. They set no cookies. Only the
+confirmation page loads a small same-origin script, which submits its form. The admin is Inertia
+and Vue, built on the TranquilTools form and table builders.
 
 ## How it works
 
 1. Create a list in the admin. A public list gets a sign-up page at `/mailing/{key}/subscribe`.
-2. A visitor signs up and receives a confirmation mail with a signed link. Only the button on that
-   page confirms the subscription.
+2. A visitor signs up and receives a confirmation mail with a signed link. The page behind it posts
+   its form with a small script, or with a button without JavaScript. Only that POST confirms the
+   subscription.
 3. Every step is stored as a consent record: the request, the confirmation, imports, unsubscribes
    and suppressions.
 4. You compose a campaign, run the pre-flight checks, send a test and schedule it.

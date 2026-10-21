@@ -71,7 +71,8 @@ and `content`:
 ## 5. Grant the permissions
 
 The admin routes use Laravel's `can` middleware with five abilities. Define them with gates or a
-permission system of your own. See [Permissions and navigation](permissions.md).
+permission system of your own. The package defines a sixth, `mailing.access`, for the menu item
+itself. See [Permissions and navigation](permissions.md).
 
 ## 6. Set up the admin front-end
 

@@ -27,28 +27,57 @@ It sets `confirmation_sent_at` on the subscription.
 
 ## The confirmation page
 
-| Method | URL                                    | Name                    |
-| ------ | -------------------------------------- | ----------------------- |
-| GET    | `/mailing/confirm/{subscription}`      | `mailing.confirm.show`  |
-| POST   | `/mailing/confirm/{subscription}`      | `mailing.confirm.store` |
+| Method | URL                                    | Name                     |
+| ------ | -------------------------------------- | ------------------------ |
+| GET    | `/mailing/confirm/{subscription}`      | `mailing.confirm.show`   |
+| POST   | `/mailing/confirm/{subscription}`      | `mailing.confirm.store`  |
+| GET    | `/mailing/assets/confirm.js`           | `mailing.confirm.script` |
 
-Both are limited to 30 requests per minute.
+The confirmation routes are limited to 30 requests per minute, the script to 60.
 
-Opening the link does not confirm anything. The GET shows a page with a "Yes, sign me up" button
-that posts to the same signed URL. Link scanners and mail previews that follow the link cannot
-confirm on someone's behalf.
+A GET never confirms anything. For a pending subscription it shows a page with a form that posts
+to the same signed URL, and loads a small same-origin script that submits that form. One click in
+the mail is enough:
+
+- The script is served by `mailing.confirm.script` and loaded by its relative URL, so a proxy that
+  ends TLS never turns it into mixed content.
+- It only submits the form marked with `data-mailing-auto-submit`. It waits until the page is
+  visible and disables the button before it posts.
+- Without JavaScript the "Yes, sign me up" button stays, and the visitor confirms with it.
+- Expired and already confirmed pages do not load the script.
 
 | Situation                                    | GET                       | POST                      |
 | -------------------------------------------- | ------------------------- | ------------------------- |
 | Unknown subscription or invalid signature    | "Link expired", `403`     | "Link expired", `403`     |
 | Already subscribed                           | "Sign-up confirmed"       | "Sign-up confirmed"       |
-| Pending, address not suppressed              | The confirm button        | Confirms, "Sign-up confirmed" |
-| Pending, address suppressed                  | The confirm button        | "Link expired", `410`     |
+| Pending, address not suppressed              | The form and the script   | Confirms, "Sign-up confirmed" |
+| Pending, address suppressed                  | The form and the script   | "Link expired", `410`     |
 | Any other status                             | "Link expired", `410`     | "Link expired", `410`     |
 
 The GET only looks at the status. The suppression list is checked when the POST confirms.
 
 An expired page links to the sign-up page when the list is public.
+
+### Content Security Policy
+
+The GET route runs `AllowSameOriginScripts` around the public middleware. When the response carries
+a `Content-Security-Policy`, it sets `'self'` in `script-src`, drops `'none'` and keeps every other
+source and directive. A policy without `script-src` gets `script-src 'self'`. Without a policy
+nothing is added. The POST and every other public page keep the policy as it is.
+
+The middleware only sees a policy that is set by middleware inside it: the route middleware in
+`mailing.routes.public_middleware`. A policy added by global middleware is set after it, so a
+`script-src 'none'` there blocks the script and the visitor needs the button.
+
+### Mail scanners
+
+Link scanners that only fetch the URL cannot confirm, because they do not run the script. A scanner
+that does run JavaScript, such as a sandbox that renders the page in a full browser, does post the
+form and confirms the address. This is an accepted trade-off, so people who forget a second click
+are not lost.
+
+Such a confirmation is recorded like any other, with the IP address of the scanner. It does not
+prove that the owner of the inbox agreed.
 
 ## Confirming
 

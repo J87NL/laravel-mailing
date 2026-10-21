@@ -85,6 +85,33 @@ A test send is the real message: the same layout, the list headers, the footer w
 link and the driver marking, such as the VERP Return-Path of the Postfix driver. The unsubscribe
 link uses the placeholder token `preview`, which does not unsubscribe anyone.
 
+### When a test mail fails
+
+Each address is sent on its own. When the mail server refuses one, the exception is reported, the
+other addresses still get their test mail, and the page redirects back with a translated
+`recipients` error per failed address: "The test mail to ... was not sent." followed by the cause.
+Every attempt counts towards the hourly limit. A test send records nothing as sent.
+
+`J87NL\Mailing\Mail\TransportFailure::describe()` turns the exception into the cause. An SMTP reply
+code and the HTTP status of a mail API are told apart: a code is read as an HTTP status when the
+exception is an `HttpTransportException`, or wraps an exception of the API client that is not a
+transport exception itself.
+
+| Code                         | Cause shown                                     |
+| ---------------------------- | ----------------------------------------------- |
+| SMTP 530, 535                | The credentials were not accepted               |
+| SMTP other 4xx               | Asked to try again later, with the code         |
+| SMTP other 5xx               | Rejected, with the code                         |
+| HTTP 401, 403                | The credentials were not accepted               |
+| HTTP 408                     | Did not answer in time                          |
+| HTTP 429                     | Asked to try again later, with the code         |
+| HTTP other 4xx               | Rejected, with the code                         |
+| HTTP 5xx                     | Temporarily unavailable, with the code          |
+
+Without a code between 400 and 599 the message is read: authentication, a timeout or a refused
+connection each get their own cause. Anything else, including an exception that is not a transport
+exception, shows that the error is in the log. The texts are in `mailing::campaigns.transport_errors`.
+
 ## Scheduling
 
 The schedule form has one optional date and time, entered in `mailing.timezone`. Empty means now.

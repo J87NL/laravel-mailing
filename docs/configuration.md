@@ -19,7 +19,7 @@ This creates `config/mailing.php`. Every key below shows its default.
 | Key                      | Description                                                                                       |
 | ------------------------ | ------------------------------------------------------------------------------------------------- |
 | `permissions_config_key` | The config key the package pushes its permission names into. See [Permissions and navigation](permissions.md). |
-| `navigation_config_key`  | The config key the package pushes its menu items into.                                            |
+| `navigation_config_key`  | The config key the package pushes its `mailing` menu item into. See [Permissions and navigation](permissions.md#navigation). |
 | `toast_flash_key`        | The Inertia flash key for success messages. The value is `['type' => 'success', 'message' => '...']`. |
 
 ## Timezone

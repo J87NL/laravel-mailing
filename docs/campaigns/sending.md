@@ -71,6 +71,10 @@ A transport error without an SMTP code fails the send instead of retrying it, be
 have been accepted before the connection broke. The default retry delays are 15 minutes, 1 hour and
 4 hours.
 
+The job reads the code the same way for every transport. The HTTP status of a mail API such as
+Lettermint is treated like an SMTP code, so a 401 is retried and a 503 is not. See
+[Lettermint](../delivery/lettermint.md#errors-from-the-api).
+
 ## Send statuses
 
 `J87NL\Mailing\Enums\SendStatus`:

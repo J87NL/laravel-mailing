@@ -53,6 +53,23 @@ The driver reports delivery, so the campaign page shows the transport as a provi
 pre-flight shows the alignment check as orange (the provider handles it), skips the blocklist check,
 and has no SPF entries or DKIM selectors to check by default.
 
+## Errors from the API
+
+Lettermint answers over HTTP, so its errors carry an HTTP status instead of an SMTP reply code. The
+status is recognised when the transport throws an `HttpTransportException` or wraps the exception of
+the API client.
+
+A failed test send shows the cause on the campaign page: a 401 or 403 as refused credentials, 408
+as a timeout, 429 as a request to try again later, another 4xx as rejected and a 5xx as a service
+that is temporarily unavailable. See
+[Composing campaigns](../campaigns/composing.md#when-a-test-mail-fails).
+
+**Known limitation:** the sending job does not make this distinction yet. For every transport it
+retries a 4xx code as temporary and fails a 5xx code for good, see
+[Sending](../campaigns/sending.md). For an HTTP transport that means a 401 or 403 is retried until
+the retries run out, and a temporary 5xx is not retried. This is a follow-up, not fixed in this
+version.
+
 ## Webhook signature
 
 `verifyWebhook()` follows `Lettermint\Webhook::verify()`:
