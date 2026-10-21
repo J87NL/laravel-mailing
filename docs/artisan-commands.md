@@ -1,6 +1,6 @@
 # Artisan commands
 
-The package has three commands. None of them takes options or arguments.
+The package has four commands. Only `mailing:read-postfix-log` takes options or arguments.
 
 ## `mailing:dispatch`
 
@@ -26,6 +26,19 @@ php artisan mailing:process-bounces
 Reads the bounce mailbox through the `MailboxReader` contract and applies the delivery status
 notifications. It prints how many reports were applied. See [Bounces](delivery/bounces.md).
 
+## `mailing:read-postfix-log`
+
+```bash
+php artisan mailing:read-postfix-log
+php artisan mailing:read-postfix-log --file=/var/log/mail.log.1
+journalctl -t postfix/smtp -t postfix/cleanup -t postfix/qmgr -o short-iso | php artisan mailing:read-postfix-log -
+```
+
+Reads the new lines of the Postfix log at `mailing.postfix_log.path` and applies delivered, deferred
+and bounced results to the sends they belong to. `--file` reads another file once from the start,
+`-` reads standard input. Without a path, `--file` or `-` it does nothing. It prints how many results
+were applied. See [Postfix delivery log](delivery/postfix.md).
+
 ## `mailing:prune`
 
 ```bash
@@ -45,6 +58,7 @@ The package adds the commands to the Laravel schedule itself:
 | `mailing:dispatch`        | Every minute       | 5 minutes    |
 | `mailing:process-bounces` | Every five minutes | 10 minutes   |
 | `mailing:prune`           | Daily at 03:15     | 60 minutes   |
+| `mailing:read-postfix-log` | Every minute, only with `mailing.postfix_log.path` set | 10 minutes |
 
 Each runs `withoutOverlapping()` with the lock time above. The scheduler of your application must
 run every minute.

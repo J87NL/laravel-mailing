@@ -12,6 +12,7 @@ configured class anew on every call.
 | `HtmlSanitizer`          | `mailing.html_sanitizer`           | `BasicHtmlSanitizer`           |
 | `DnsResolver`            | `mailing.preflight.dns_resolver`   | `NativeDnsResolver`            |
 | `SpamScorer`             | `mailing.preflight.spam_scorer`    | `RspamdSpamScorer`             |
+| `PostfixLogReader`       | `mailing.postfix_log.reader`       | `FilePostfixLogReader`         |
 | `MailingDriver`          | `mailing.drivers.<key>.class`      | `PostfixDriver`, `LettermintDriver` |
 
 All classes are resolved from the container, so they can have constructor dependencies.
@@ -137,6 +138,24 @@ interface SpamScorer
 It gets the full rendered message and returns a score, or `null` when none is available. `null`
 makes the check orange. Besides `RspamdSpamScorer` the package ships `NullSpamScorer`, which always
 returns `null`.
+
+## PostfixLogReader
+
+Supplies the Postfix log lines that are new since the previous call. `mailing:read-postfix-log` only
+calls it when `mailing.postfix_log.path` is set.
+
+```php
+interface PostfixLogReader
+{
+    /**
+     * @return iterable<string>
+     */
+    public function lines(): iterable;
+}
+```
+
+The default, `J87NL\Mailing\Postfix\FilePostfixLogReader`, reads `mailing.postfix_log.path` from
+the stored position on and follows log rotation. See [Postfix delivery log](delivery/postfix.md).
 
 ## MailingDriver
 

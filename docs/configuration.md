@@ -106,7 +106,8 @@ the default reads `senders`. See [Mailing lists](lists.md#sender-identity) and
 ```
 
 The classes bound to `MailboxReader` and `HtmlSanitizer`. The default mailbox reader reads nothing,
-so bounce processing does nothing until you bind your own. See [Contracts](contracts.md).
+so bounce processing does nothing until you bind your own. See [Contracts](contracts.md). The
+`PostfixLogReader` is set under [Postfix log](#postfix-log).
 
 ## Rich text
 
@@ -236,6 +237,24 @@ See [Sending](campaigns/sending.md).
 | `soft_window_days` | The window in days in which those soft bounces are counted.                              |
 
 See [Bounces](delivery/bounces.md).
+
+## Postfix log
+
+```php
+'postfix_log' => [
+    'path' => env('MAILING_POSTFIX_LOG_PATH'),
+    'reader' => FilePostfixLogReader::class,
+    'queue_ttl_hours' => 48,
+],
+```
+
+| Key               | Description                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------- |
+| `path`            | The Postfix log file `mailing:read-postfix-log` reads. Empty (the default) turns the feature off and keeps the command out of the schedule. |
+| `reader`          | The class bound to the `PostfixLogReader` contract. The default reads `path` incrementally and follows log rotation. |
+| `queue_ttl_hours` | How long the queue id of one of your sends is remembered while its result is not logged yet.     |
+
+See [Postfix delivery log](delivery/postfix.md).
 
 ## Pre-flight
 
@@ -379,6 +398,7 @@ See [Retention](retention.md).
 | `LETTERMINT_WEBHOOK_SECRET`      | `drivers.lettermint.webhook_secret`      |
 | `MAILING_QUEUE`                  | `sending.queue`                          |
 | `MAILING_BOUNCE_DOMAIN`          | `bounces.domain`                         |
+| `MAILING_POSTFIX_LOG_PATH`       | `postfix_log.path`                       |
 | `MAILING_RSPAMD_URL`             | `preflight.rspamd.url`                   |
 | `MAILING_RSPAMD_PASSWORD`        | `preflight.rspamd.password`              |
 | `MAILING_SENDING_IPS`            | `preflight.sending_ips`                  |

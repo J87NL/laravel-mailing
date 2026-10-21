@@ -33,6 +33,8 @@ other driver.
   with `app.key`, so a bounce cannot be forged for another send. Test sends use send id `0`.
 - Has no webhooks and does not report delivery. The campaign page shows the transport as Postfix.
 - Bounces come back as delivery status notifications in a mailbox, see [Bounces](bounces.md).
+- Delivered, deferred and bounced results can come from Postfix's own log, see
+  [Postfix delivery log](postfix.md). The campaign page then says so.
 
 ## Lettermint
 

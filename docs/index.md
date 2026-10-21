@@ -19,7 +19,7 @@ and Vue, built on the TranquilTools form and table builders.
 5. `mailing:dispatch` runs every minute. It snapshots the confirmed, unsuppressed subscribers and
    releases one queued job per address within the throttles of the list.
 6. Bounces (from a mailbox or a webhook) update the send records and suppress addresses that keep
-   failing.
+   failing. With your own Postfix, its mail log can report delivered, deferred and bounced as well.
 
 ## Quick example
 
@@ -94,3 +94,4 @@ class MarketReminder extends ListMailable
 - [Composing campaigns](campaigns/composing.md): write and send a mailing
 - [Sending](campaigns/sending.md): throttles, retries and statuses
 - [Drivers](delivery/drivers.md): Postfix, Lettermint and your own
+- [Postfix delivery log](delivery/postfix.md): delivery results from Postfix's own log

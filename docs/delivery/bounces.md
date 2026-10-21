@@ -1,7 +1,8 @@
 # Bounces
 
-Bounces reach the package in two ways: as delivery status notifications in a mailbox (Postfix), or
-as webhook events (Lettermint). Both end up in the same rules.
+Bounces reach the package in three ways: as delivery status notifications in a mailbox (Postfix),
+as webhook events (Lettermint), or from Postfix's own log (see
+[Postfix delivery log](postfix.md)). All end up in the same rules.
 
 ## The rules
 
