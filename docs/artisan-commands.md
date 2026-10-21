@@ -31,12 +31,13 @@ notifications. It prints how many reports were applied. See [Bounces](delivery/b
 ```bash
 php artisan mailing:read-postfix-log
 php artisan mailing:read-postfix-log --file=/var/log/mail.log.1
-journalctl -t postfix/smtp -t postfix/cleanup -t postfix/qmgr -o short-iso | php artisan mailing:read-postfix-log -
+journalctl --since today -t postfix/smtp -t postfix/cleanup -t postfix/qmgr -o short-iso | php artisan mailing:read-postfix-log -
 ```
 
 Reads the new lines of the Postfix log at `mailing.postfix_log.path` and applies delivered, deferred
 and bounced results to the sends they belong to. `--file` reads another file once from the start,
-`-` reads standard input. Without a path, `--file` or `-` it does nothing. It prints how many results
+`-` reads standard input; both are one-off runs and keep no position. Without a path, `--file` or
+`-` it does nothing. It prints how many results
 were applied. See [Postfix delivery log](delivery/postfix.md).
 
 ## `mailing:prune`

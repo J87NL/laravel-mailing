@@ -252,7 +252,7 @@ See [Bounces](delivery/bounces.md).
 | ----------------- | ------------------------------------------------------------------------------------------------- |
 | `path`            | The Postfix log file `mailing:read-postfix-log` reads. Empty (the default) turns the feature off and keeps the command out of the schedule. |
 | `reader`          | The class bound to the `PostfixLogReader` contract. The default reads `path` incrementally and follows log rotation. |
-| `queue_ttl_hours` | How long the queue id of one of your sends is remembered while its result is not logged yet.     |
+| `queue_ttl_hours` | How long the queue id of one of your sends is remembered after its last `message-id` or `deferred` line. |
 
 See [Postfix delivery log](delivery/postfix.md).
 

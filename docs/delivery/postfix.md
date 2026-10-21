@@ -10,13 +10,21 @@ recipient. `mailing:read-postfix-log` reads that log and moves the send on:
 | `status=deferred`                             | `Deferred`     | `deferred`   | The DSN code and the reason          |
 | `status=bounced` with a `5.x.x` DSN code      | `HardBounce`   | `bounced`    | The DSN code and the reason          |
 | `status=bounced` with a `4.x.x` DSN code      | `SoftBounce`   | `deferred`   | The DSN code and the reason          |
-| `status=expired` (Postfix gave up retrying)   | `SoftBounce`   | `deferred`   | `expired, returned to sender`        |
+| `status=expired` (Postfix gave up retrying)   | `SoftBounce`, then `Failed` | `failed` | `expired, returned to sender`  |
 
 The events go through `ApplyDeliveryEvent`, the same path as provider webhooks and bounce messages.
 So the [bounce rules](bounces.md#the-rules) apply as they are: a permanent bounce suppresses the
 address, soft bounces suppress it after three different messages in 30 days. A status never moves
 backwards either: a late `deferred` line after `sent` changes nothing. See
 [Send statuses](../campaigns/sending.md#send-statuses).
+
+`delivered` means the next hop accepted the mail with a 2xx reply. Without a relay host that is the
+receiving mail server. With a `relayhost` or a content filter after Postfix it is that relay, so
+`delivered` then says less.
+
+A result only counts when its `to=` or `orig_to=` address is the address of the send. Every 5xx
+bounce suppresses, also a policy rejection such as `5.7.1` for a blocklisted sending IP: check the
+pre-flight blocklist result before a large campaign.
 
 A `deferred` send that Postfix is still retrying gets no retry time, so the package never sends it
 a second time, and cancelling the campaign leaves it alone because it was handed over.
@@ -38,7 +46,7 @@ scheduled.
 | ----------------- | ------------------------------------------------------------------------------------------------ |
 | `path`            | The log file to read, e.g. `/var/log/mailing-postfix.log`. Empty turns the feature off.          |
 | `reader`          | The class bound to the `PostfixLogReader` contract. The default reads `path` incrementally.      |
-| `queue_ttl_hours` | How long a Postfix queue id of one of your sends is remembered while waiting for its result.    |
+| `queue_ttl_hours` | How long a Postfix queue id of one of your sends is remembered after its last `message-id` or `deferred` line. Postfix retries at least every ~70 minutes by default, so 48 hours covers its whole queue lifetime. |
 
 With `path` set, the package schedules `mailing:read-postfix-log` every minute, with an overlap lock
 of 10 minutes, unless `mailing.scheduling.enabled` is `false`.
@@ -60,9 +68,10 @@ Oct 21 10:15:01 vps postfix/qmgr[901]: 7D3E21F4A2: removed
   `local`, `virtual`, `error`) for a stored queue id becomes a delivery event. `qmgr` lines with
   `status=expired` count too.
 - **Across runs.** A message that is deferred for hours has its lines spread over many runs. The
-  stored queue id survives between runs until Postfix logs `removed`, or for `queue_ttl_hours` (48).
+  stored queue id survives between runs until Postfix logs `removed`, or for `queue_ttl_hours` (48)
+  after its last `deferred` line.
 - **Only once.** Each result is recorded in `mailing_webhook_events` under the driver `postfix-log`,
-  keyed on the queue id, the status, the recipient, the DSN code and the reply. A line that is read
+  keyed on the Message-ID, the queue id, the status, the recipient, the DSN code and the reply. A line that is read
   twice, after a rotation or a backfill, is skipped.
 
 Supported line formats: classic syslog (`Oct 21 10:15:01 host postfix/smtp[123]: …`), journald
@@ -84,7 +93,12 @@ only reads complete lines; a line that Postfix is still writing waits for the ne
 - **First run.** Without a stored position the whole file is read. That doubles as a backfill.
 
 The position lives in the database rather than in the cache, so a `cache:clear` during a deploy
-does not make the reader start over or lose its place.
+does not make the reader start over or lose its place. It is stored per path, so the reader assumes
+one host: several app servers that each read a local Postfix log into one database need their own
+`PostfixLogReader`.
+
+A first run over a large existing log can take longer than the 10-minute overlap lock. Run it once by
+hand (`php artisan mailing:read-postfix-log`) before the schedule picks it up.
 
 ## Manual and backfill runs
 
@@ -98,7 +112,9 @@ position of the configured file. Lines that were applied before are skipped.
 
 ## Setting up the host
 
-The app user has to read Postfix's log lines, and nothing else. Pick one of these two.
+The app user has to read Postfix's log lines, and no other logs. Those lines still show the envelope
+sender and recipients of every mail on the server, so treat the file as personal data. Pick one of
+these two.
 
 > Do not add the app user to `adm` or `systemd-journal`. Those groups can read every log on the
 > server, including `auth.log` and other users' mail. A bug in the app would expose all of it.
@@ -146,8 +162,10 @@ Then point the app at it:
 MAILING_POSTFIX_LOG_PATH=/var/log/mailing-postfix.log
 ```
 
-`syslog` is the user rsyslog runs as on Debian and Ubuntu. On other systems use the user of your
-syslog daemon, or `root`.
+`syslog` is the user rsyslog runs as on Ubuntu. Debian runs rsyslog as `root` and has no `syslog`
+user: use `root` there in `install` and in `create`. On Ubuntu, logrotate may refuse the file
+because `/var/log` is group-writable; add `su root syslog` to the block, as Ubuntu's own
+`/etc/logrotate.d/rsyslog` does.
 
 ### Option B: journald only
 
@@ -184,6 +202,7 @@ sudo systemctl enable --now mailing-postfix-log.timer
 ```
 
 Leave `MAILING_POSTFIX_LOG_PATH` empty with this option: the timer replaces the schedule. The
+campaign page then still describes the transport as plain Postfix, although the results arrive. The
 first run, before the cursor file exists, feeds every Postfix line the journal still holds, which
 doubles as a backfill. journalctl moves its cursor even when the command fails, so check the unit's
 status now and then (`systemctl status mailing-postfix-log`). The `-t` identifiers are
@@ -192,7 +211,8 @@ the ones of a default Postfix; with a multi-instance setup add yours, e.g. `-t p
 ## Privacy
 
 The log holds a line for every mail the server handles, also mail that has nothing to do with the
-package. The package only stores what belongs to its own sends: the queue id of a message whose
+package, and whoever can read the file sees the envelope addresses of all of it. The package only
+stores what belongs to its own sends: the queue id of a message whose
 Message-ID is in `mailing_sends`, and the result for that send. Other lines are never written
 anywhere. The log file itself is yours to keep short: the logrotate example keeps seven days.
 

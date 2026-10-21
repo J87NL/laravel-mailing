@@ -33,7 +33,7 @@ Send records, bounce events and processed webhook, bounce report and Postfix log
 `send_records_months` (13) months are deleted.
 
 Postfix queue ids of your sends are not kept that long: `mailing:read-postfix-log` deletes them when
-Postfix logs `removed`, or after `mailing.postfix_log.queue_ttl_hours` (48). See
+Postfix logs `removed`, or `mailing.postfix_log.queue_ttl_hours` (48) after its last `deferred` line. See
 [Postfix delivery log](delivery/postfix.md#privacy).
 
 ## Subscribers
