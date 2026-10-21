@@ -7,6 +7,7 @@ namespace J87NL\Mailing\Http\Controllers\Admin;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Validator;
@@ -129,7 +130,7 @@ class CampaignController extends Controller
             return $this->locked($campaign);
         }
 
-        $campaign->delete();
+        DB::transaction(fn () => $campaign->delete());
 
         $this->toast(__('mailing::campaigns.flash.deleted'));
 
@@ -167,6 +168,7 @@ class CampaignController extends Controller
                 'scheduledAt' => MailingTime::format($campaign->scheduled_at, 'D MMMM YYYY HH:mm'),
                 'startedAt' => MailingTime::format($campaign->started_at, 'D MMMM YYYY HH:mm'),
                 'finishedAt' => MailingTime::format($campaign->finished_at, 'D MMMM YYYY HH:mm'),
+                'attachmentsPrunedAt' => MailingTime::format($campaign->attachments_pruned_at, 'D MMMM YYYY'),
                 'recipients' => in_array($campaign->status, self::UNSTARTED, true) ? $recipients : array_sum($counts),
                 'estimatedFinish' => $this->estimatedFinish($campaign, $counts),
                 'transport' => $this->transport($driver),
@@ -181,6 +183,7 @@ class CampaignController extends Controller
             ),
             'attachments' => $campaign->attachments
                 ->map(fn (CampaignAttachment $attachment): array => [
+                    'id' => $attachment->id,
                     'name' => $attachment->name,
                     'size' => CampaignAttachments::size($attachment->size),
                     'delivery' => (string) __(sprintf('mailing::campaigns.attachments.%s', $attachment->as_link ? 'as_link' : 'as_attachment')),
@@ -250,6 +253,12 @@ class CampaignController extends Controller
 
     public function retry(Campaign $campaign, ChangeCampaignStatus $status): RedirectResponse
     {
+        if (! is_null($campaign->attachments_pruned_at)) {
+            return to_route('mailing.campaigns.show', $campaign)->withErrors([
+                'campaign' => __('mailing::campaigns.errors.attachments_pruned'),
+            ]);
+        }
+
         $retried = $status->retryFailed($campaign);
 
         $this->toast(trans_choice('mailing::campaigns.flash.retried', $retried, [
@@ -375,7 +384,7 @@ class CampaignController extends Controller
         }
 
         if ($campaign->status->allowsRetry() && $this->hasRetryableSends($campaign)) {
-            $actions[] = $this->action(__('mailing::campaigns.actions.retry'), route('mailing.campaigns.retry', $campaign), 'post', __('mailing::campaigns.actions.retry_confirm'), $needsSend);
+            $actions[] = $this->action(__('mailing::campaigns.actions.retry'), route('mailing.campaigns.retry', $campaign), 'post', __('mailing::campaigns.actions.retry_confirm'), $campaign->allowsRetry() ? $needsSend : (string) __('mailing::campaigns.errors.attachments_pruned'));
         }
 
         if (in_array($campaign->status, self::CANCELLABLE, true)) {

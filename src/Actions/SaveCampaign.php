@@ -7,6 +7,7 @@ namespace J87NL\Mailing\Actions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use J87NL\Mailing\Attachments\CampaignAttachments;
 use J87NL\Mailing\Contracts\HtmlSanitizer;
 use J87NL\Mailing\Html\HtmlToText;
@@ -69,7 +70,18 @@ class SaveCampaign
                     $this->updateAttachments($campaign, $data);
                 }
 
-                foreach ($this->uploads($data) as $file) {
+                $uploads = $this->uploads($data);
+                $total = (int) $campaign->attachments()->sum('size') + array_sum(array_map(fn (UploadedFile $file): int => (int) $file->getSize(), $uploads));
+
+                if ($uploads !== [] && $total > $this->attachments->maxTotalBytes()) {
+                    throw ValidationException::withMessages([
+                        'attachments' => __('mailing::campaigns.errors.attachments_too_large', [
+                            'max' => CampaignAttachments::size($this->attachments->maxTotalBytes()),
+                        ]),
+                    ]);
+                }
+
+                foreach ($uploads as $file) {
                     $attachment = $this->attachments->store($campaign, $file, (bool) ($data['new_attachments_as_link'] ?? false));
                     $stored[] = [
                         $attachment->disk,

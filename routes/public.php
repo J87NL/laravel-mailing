@@ -2,9 +2,14 @@
 
 declare(strict_types=1);
 
+use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Routing\Middleware\ValidateSignature;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 use J87NL\Mailing\Http\Controllers\Public\AttachmentDownloadController;
 use J87NL\Mailing\Http\Controllers\Public\ConfirmationController;
 use J87NL\Mailing\Http\Controllers\Public\ConfirmationScriptController;
@@ -51,6 +56,13 @@ Route::middleware([
             ->middleware([
                 ValidateSignature::class,
                 'throttle:60,1',
+            ])
+            ->withoutMiddleware([
+                AddQueuedCookiesToResponse::class,
+                EncryptCookies::class,
+                PreventRequestForgery::class,
+                ShareErrorsFromSession::class,
+                StartSession::class,
             ])
             ->where('token', '[A-Za-z0-9]{40}')
             ->name('attachments.download');

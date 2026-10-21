@@ -12,6 +12,7 @@ use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Mail\Mailables\Headers;
 use Illuminate\Support\Str;
 use J87NL\Mailing\Attachments\CampaignAttachments;
+use J87NL\Mailing\Attachments\MissingAttachmentFile;
 use J87NL\Mailing\Contracts\HtmlSanitizer;
 use J87NL\Mailing\Html\EmailStyler;
 use J87NL\Mailing\Models\Campaign;
@@ -90,11 +91,19 @@ class CampaignMail extends Mailable
      */
     public function attachments(): array
     {
+        $attachments = app(CampaignAttachments::class);
+
         return $this->campaign->attachments
             ->reject(fn (CampaignAttachment $attachment): bool => $attachment->as_link)
-            ->map(fn (CampaignAttachment $attachment): Attachment => Attachment::fromStorageDisk($attachment->disk, $attachment->path)
-                ->as($attachment->name)
-                ->withMime($attachment->mime_type))
+            ->map(function (CampaignAttachment $attachment) use ($attachments): Attachment {
+                if (! $attachments->exists($attachment)) {
+                    throw MissingAttachmentFile::for($attachment);
+                }
+
+                return Attachment::fromStorageDisk($attachment->disk, $attachment->path)
+                    ->as($attachment->name)
+                    ->withMime($attachment->mime_type);
+            })
             ->values()
             ->all();
     }

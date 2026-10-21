@@ -53,6 +53,7 @@ return [
         'started' => 'Started on :time',
         'finished' => 'Finished on :time',
         'scheduled' => 'Scheduled for :time',
+        'attachments_pruned' => 'Attachments deleted on :time.',
     ],
     'transport' => [
         'postfix' => 'This list sends through the own Postfix. "Handed over" means Postfix accepted the mail; delivery is never known, only bounces come back. No transport reports inbox versus spam folder.',
@@ -82,6 +83,7 @@ return [
         'test_failed' => 'The test mail to :recipient was not sent. :cause',
         'test_recipients' => 'Enter one to :max valid email addresses.',
         'attachments_too_large' => 'The attachments are larger than :max together.',
+        'attachments_pruned' => 'The attachments of this campaign were already deleted; sending again would leave them out.',
     ],
     'attachments' => [
         'as_attachment' => 'As an attachment',

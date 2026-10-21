@@ -53,6 +53,7 @@ return [
         'started' => 'Gestart op :time',
         'finished' => 'Klaar op :time',
         'scheduled' => 'Ingepland voor :time',
+        'attachments_pruned' => 'Bijlagen verwijderd op :time.',
     ],
     'transport' => [
         'postfix' => 'Deze lijst verstuurt via de eigen Postfix. "Overgedragen" betekent dat Postfix de mail heeft aangenomen; of hij is afgeleverd weten we niet, alleen bounces komen terug. Of een mail in de inbox of in de spam belandt, meldt geen enkele verzendroute.',
@@ -82,6 +83,7 @@ return [
         'test_failed' => 'De testmail naar :recipient is niet verstuurd. :cause',
         'test_recipients' => 'Geef één tot :max geldige e-mailadressen op.',
         'attachments_too_large' => 'De bijlagen zijn samen groter dan :max.',
+        'attachments_pruned' => 'De bijlagen van deze mailing zijn al verwijderd; opnieuw versturen zou ze weglaten.',
     ],
     'attachments' => [
         'as_attachment' => 'Als bijlage',

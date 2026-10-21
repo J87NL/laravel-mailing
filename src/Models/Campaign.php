@@ -22,6 +22,7 @@ use J87NL\Mailing\Enums\CampaignStatus;
  * @property Carbon|null $scheduled_at
  * @property Carbon|null $started_at
  * @property Carbon|null $finished_at
+ * @property Carbon|null $attachments_pruned_at
  * @property int|null $created_by
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -84,6 +85,11 @@ class Campaign extends Model
         return $this->hasMany(CampaignAttachment::class)->orderBy('id');
     }
 
+    public function allowsRetry(): bool
+    {
+        return $this->status->allowsRetry() && is_null($this->attachments_pruned_at);
+    }
+
     public function isEditable(): bool
     {
         return $this->status === CampaignStatus::Draft;
@@ -99,6 +105,7 @@ class Campaign extends Model
             'scheduled_at' => 'datetime',
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
+            'attachments_pruned_at' => 'datetime',
             'created_by' => 'integer',
         ];
     }

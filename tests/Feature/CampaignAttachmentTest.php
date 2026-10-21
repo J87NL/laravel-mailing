@@ -4,19 +4,35 @@ declare(strict_types=1);
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
+use J87NL\Mailing\Actions\ChangeCampaignStatus;
+use J87NL\Mailing\Actions\SaveCampaign;
 use J87NL\Mailing\Actions\StartCampaign;
 use J87NL\Mailing\Attachments\CampaignAttachments;
+use J87NL\Mailing\Attachments\MissingAttachmentFile;
 use J87NL\Mailing\Contracts\DnsResolver;
 use J87NL\Mailing\Enums\CampaignStatus;
+use J87NL\Mailing\Enums\SendStatus;
+use J87NL\Mailing\Mail\CampaignMail;
 use J87NL\Mailing\MailingPermission;
 use J87NL\Mailing\Models\Campaign;
 use J87NL\Mailing\Models\CampaignAttachment;
+use J87NL\Mailing\Models\Send;
 use J87NL\Mailing\Preflight\PreflightCheck;
 use J87NL\Mailing\Preflight\PreflightItem;
 use J87NL\Mailing\Tests\Fakes\FakeDnsResolver;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\Part\DataPart;
+
+function realUpload(string $name, string $content): UploadedFile
+{
+    $path = tempnam(sys_get_temp_dir(), 'mailing-upload');
+    file_put_contents($path, $content);
+
+    return new UploadedFile($path, $name, null, null, true);
+}
 
 function attachFile(Campaign $campaign, string $name = 'flyer.pdf', int $kilobytes = 100, string $mime = 'application/pdf', bool $asLink = false): CampaignAttachment
 {
@@ -325,7 +341,9 @@ test('attachments can no longer be changed once the campaign is scheduled', func
 })->with([
     'scheduled' => [CampaignStatus::Scheduled],
     'sending' => [CampaignStatus::Sending],
+    'paused' => [CampaignStatus::Paused],
     'sent' => [CampaignStatus::Sent],
+    'cancelled' => [CampaignStatus::Cancelled],
 ]);
 
 test('the pre-flight check warns about large attachments and mails that are mostly attachment', function (): void {
@@ -396,8 +414,8 @@ test('a changed attachment refreshes the cached pre-flight check', function (): 
 
 test('the campaign page lists the attachments and how they are sent', function (): void {
     $campaign = makeCampaign($this->list);
-    attachFile($campaign, 'flyer.pdf');
-    attachFile($campaign, 'kaart.pdf', 50, 'application/pdf', true);
+    $flyer = attachFile($campaign, 'flyer.pdf');
+    $map = attachFile($campaign, 'kaart.pdf', 50, 'application/pdf', true);
 
     $this->actingWithPermissions([MailingPermission::CampaignsEdit->value]);
 
@@ -407,11 +425,13 @@ test('the campaign page lists the attachments and how they are sent', function (
 
     expect($attachments)->toBe([
         [
+            'id' => $flyer->id,
             'name' => 'flyer.pdf',
             'size' => '100 KB',
             'delivery' => __('mailing::campaigns.attachments.as_attachment'),
         ],
         [
+            'id' => $map->id,
             'name' => 'kaart.pdf',
             'size' => '50 KB',
             'delivery' => __('mailing::campaigns.attachments.as_link'),
@@ -480,4 +500,228 @@ test('download links never outlive the files behind them', function (): void {
     $this->artisan('mailing:prune')->assertSuccessful();
 
     Storage::disk('local')->assertExists($file->path);
+});
+
+test('the type is read from the content, not from the name', function (): void {
+    $this->actingWithPermissions([MailingPermission::CampaignsEdit->value]);
+    $campaign = makeCampaign($this->list);
+
+    $this->put(route('mailing.campaigns.update', $campaign), composerPayload($campaign, [
+        'attachments' => [
+            realUpload('flyer.pdf', '<!DOCTYPE html><html><body><script>alert(1)</script></body></html>'),
+        ],
+    ]))->assertSessionHasErrors('attachments.0');
+
+    expect($campaign->attachments()->count())->toBe(0)
+        ->and(Storage::disk('local')->allFiles())->toBe([]);
+
+    $png = UploadedFile::fake()->image('plattegrond.png');
+
+    $this->put(route('mailing.campaigns.update', $campaign), composerPayload($campaign, [
+        'attachments' => [
+            realUpload('plattegrond.pdf', (string) file_get_contents($png->getRealPath())),
+        ],
+    ]))->assertSessionHasNoErrors();
+
+    $attachment = $campaign->attachments()
+        ->sole();
+
+    expect($attachment->name)->toBe('plattegrond.png')
+        ->and($attachment->mime_type)->toBe('image/png')
+        ->and($attachment->path)->toEndWith('.png');
+});
+
+test('a new campaign with attachments needs the permission to edit campaigns', function (): void {
+    $this->actingWithPermissions([MailingPermission::Lists->value]);
+
+    $this->post(route('mailing.campaigns.store'), [
+        'list_id' => (string) $this->list->id,
+        'subject' => 'Nieuws',
+        'body_html' => '<p>De flyer staat in de bijlage.</p>',
+        'attachments' => [
+            UploadedFile::fake()->create('flyer.pdf', 10, 'application/pdf'),
+        ],
+    ])->assertForbidden();
+
+    expect(Campaign::query()->count())->toBe(0)
+        ->and(Storage::disk('local')->allFiles())->toBe([]);
+});
+
+test('a save that finds the campaign no longer a draft under the lock stores no files', function (): void {
+    $campaign = makeCampaign($this->list);
+    $stale = $campaign->fresh();
+
+    Campaign::query()
+        ->whereKey($campaign->id)
+        ->update([
+            'status' => CampaignStatus::Scheduled,
+        ]);
+
+    $saved = app(SaveCampaign::class)->handle($stale, composerPayload($campaign, [
+        'attachments' => [
+            UploadedFile::fake()->create('flyer.pdf', 10, 'application/pdf'),
+        ],
+    ]), 1);
+
+    expect($saved)->toBeFalse()
+        ->and(CampaignAttachment::query()->count())->toBe(0)
+        ->and(Storage::disk('local')->allFiles())->toBe([]);
+});
+
+test('the total size is checked again under the lock, so two saves at once cannot pass the limit', function (): void {
+    $campaign = makeCampaign($this->list);
+    $existing = attachFile($campaign, 'groot.pdf', 8 * 1024);
+
+    expect(fn () => app(SaveCampaign::class)->handle($campaign->fresh(), composerPayload($campaign, [
+        'attachments' => [
+            UploadedFile::fake()->create('nog-een.pdf', 3 * 1024, 'application/pdf'),
+        ],
+    ]), 1))->toThrow(ValidationException::class);
+
+    expect($campaign->attachments()->pluck('name')->all())->toBe(['groot.pdf'])
+        ->and(Storage::disk('local')->allFiles())->toBe([$existing->path]);
+});
+
+test('a download link sets no cookie even when the host puts the public routes in the web group', function (): void {
+    config()->set('mailing.routes.public_middleware', ['web']);
+
+    require __DIR__.'/../../routes/public.php';
+
+    Route::getRoutes()->refreshNameLookups();
+
+    $this->get(route('mailing.unsubscribe.show', [
+        'token' => 'onbekend',
+    ]))->assertCookie((string) config('session.cookie'));
+
+    $campaign = makeCampaign($this->list);
+    $attachment = attachFile($campaign, 'plattegrond.pdf', 50, 'application/pdf', true);
+    $attachments = app(CampaignAttachments::class);
+
+    $response = $this->get($attachments->downloadUrl($attachment, $attachments->linkExpiry()));
+
+    $response->assertOk()->assertDownload('plattegrond.pdf');
+
+    expect($response->headers->getCookies())->toBe([]);
+});
+
+test('download links are limited to 60 requests a minute', function (): void {
+    $campaign = makeCampaign($this->list);
+    $attachment = attachFile($campaign, 'plattegrond.pdf', 1, 'application/pdf', true);
+    $attachments = app(CampaignAttachments::class);
+    $url = $attachments->downloadUrl($attachment, $attachments->linkExpiry());
+
+    for ($i = 0; $i < 60; $i++) {
+        $this->get($url)->assertOk();
+    }
+
+    $this->get($url)->assertTooManyRequests();
+});
+
+test('a missing attachment file blocks scheduling and fails the send with a clear cause', function (): void {
+    $campaign = makeCampaign($this->list);
+    $attachment = attachFile($campaign, 'flyer.pdf');
+
+    Storage::disk('local')->delete($attachment->path);
+
+    $items = collect(app(PreflightCheck::class)->run($campaign->fresh()))->keyBy('key');
+
+    expect($items['attachments']->status)->toBe(PreflightItem::ERROR)
+        ->and($items['attachments']->message)->toContain('flyer.pdf')
+        ->and($items['spam_score']->status)->toBe(PreflightItem::WARNING);
+
+    $this->actingWithPermissions([
+        MailingPermission::CampaignsEdit->value,
+        MailingPermission::CampaignsSend->value,
+    ]);
+
+    $this->get(route('mailing.campaigns.show', $campaign), [
+        'X-Inertia' => 'true',
+    ])->assertOk();
+    $this->post(route('mailing.campaigns.schedule', $campaign))->assertSessionHasErrors('campaign');
+
+    expect($campaign->fresh()->status)->toBe(CampaignStatus::Draft)
+        ->and(fn () => (new CampaignMail($campaign->fresh()))->attachments())->toThrow(MissingAttachmentFile::class, 'flyer.pdf');
+
+    app(StartCampaign::class)->handle($campaign->fresh());
+    runDispatcher();
+
+    $send = Send::query()
+        ->sole();
+
+    expect($send->status)->toBe(SendStatus::Failed)
+        ->and($send->last_response)->toContain('flyer.pdf')
+        ->and(sentMessages())->toHaveCount(0);
+});
+
+test('failed sends are not retried once the attachments are pruned', function (): void {
+    config()->set('mailing.attachments.retention_days', 30);
+
+    $campaign = makeCampaign($this->list);
+    attachFile($campaign);
+    app(StartCampaign::class)->handle($campaign);
+
+    Send::query()
+        ->update([
+            'status' => SendStatus::Failed,
+        ]);
+    $campaign->forceFill([
+        'status' => CampaignStatus::Sent,
+        'finished_at' => now()->subDays(31),
+    ])->save();
+    $updatedAt = $campaign->fresh()->updated_at;
+
+    $this->travel(1)->minutes();
+    $this->artisan('mailing:prune')->assertSuccessful();
+
+    $campaign->refresh();
+
+    expect($campaign->attachments_pruned_at)->not->toBeNull()
+        ->and($campaign->updated_at?->equalTo($updatedAt))->toBeTrue()
+        ->and(app(ChangeCampaignStatus::class)->retryFailed($campaign))->toBe(0)
+        ->and(Send::query()->sole()->status)->toBe(SendStatus::Failed);
+
+    $this->actingWithPermissions([
+        MailingPermission::CampaignsEdit->value,
+        MailingPermission::CampaignsSend->value,
+    ]);
+
+    $this->post(route('mailing.campaigns.retry', $campaign))->assertSessionHasErrors('campaign');
+
+    $page = $this->get(route('mailing.campaigns.show', $campaign), [
+        'X-Inertia' => 'true',
+    ]);
+    $retry = collect($page->json('props.actions'))->firstWhere('url', route('mailing.campaigns.retry', $campaign));
+
+    expect($retry['disabledReason'])->toBe(__('mailing::campaigns.errors.attachments_pruned'))
+        ->and($page->json('props.campaign.attachmentsPrunedAt'))->not->toBeNull()
+        ->and(Send::query()->sole()->status)->toBe(SendStatus::Failed);
+});
+
+test('both attachment warnings show when both apply', function (): void {
+    $campaign = makeCampaign($this->list, [
+        'body_html' => '<p>Zie de bijlage.</p>',
+    ]);
+    attachFile($campaign, 'foto.jpg', 3 * 1024, 'image/jpeg');
+
+    $item = attachmentStatus($campaign);
+
+    expect($item?->status)->toBe(PreflightItem::WARNING)
+        ->and($item?->message)->toContain(__('mailing::preflight.messages.attachments.large', [
+            'size' => '3 MB',
+            'max' => '2 MB',
+        ]))
+        ->and($item?->message)->toContain(__('mailing::preflight.messages.attachments.mostly_attachment', [
+            'min' => 200,
+        ]));
+});
+
+test('a stored file is deleted again when its database row cannot be written', function (): void {
+    $campaign = makeCampaign($this->list);
+
+    CampaignAttachment::creating(function (): void {
+        throw new RuntimeException('database down');
+    });
+
+    expect(fn () => attachFile($campaign))->toThrow(RuntimeException::class, 'database down')
+        ->and(Storage::disk('local')->allFiles())->toBe([]);
 });

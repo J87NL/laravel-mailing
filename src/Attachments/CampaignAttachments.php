@@ -13,6 +13,8 @@ use Illuminate\Support\Number;
 use Illuminate\Support\Str;
 use J87NL\Mailing\Models\Campaign;
 use J87NL\Mailing\Models\CampaignAttachment;
+use RuntimeException;
+use Throwable;
 
 class CampaignAttachments
 {
@@ -66,21 +68,46 @@ class CampaignAttachments
         $disk = (string) config('mailing.attachments.disk', 'local');
         $extension = strtolower((string) ($file->guessExtension() ?? $file->getClientOriginalExtension()));
         $token = Str::random(40);
-        $path = sprintf('%s/%d/%s.%s', trim((string) config('mailing.attachments.directory', 'mailing/attachments'), '/'), $campaign->id, $token, $extension);
+        $directory = sprintf('%s/%d', trim((string) config('mailing.attachments.directory', 'mailing/attachments'), '/'), $campaign->id);
+        $path = Storage::disk($disk)->putFileAs($directory, $file, sprintf('%s.%s', $token, $extension));
 
-        Storage::disk($disk)->put($path, (string) file_get_contents($file->getRealPath()));
+        if ($path === false) {
+            throw new RuntimeException(sprintf('The attachment could not be written to disk "%s".', $disk));
+        }
 
-        return CampaignAttachment::query()
-            ->create([
-                'campaign_id' => $campaign->id,
-                'token' => $token,
-                'disk' => $disk,
-                'path' => $path,
-                'name' => $this->displayName($file, $extension),
-                'mime_type' => (string) ($file->getMimeType() ?? 'application/octet-stream'),
-                'size' => (int) $file->getSize(),
-                'as_link' => $asLink,
-            ]);
+        try {
+            return CampaignAttachment::query()
+                ->create([
+                    'campaign_id' => $campaign->id,
+                    'token' => $token,
+                    'disk' => $disk,
+                    'path' => $path,
+                    'name' => $this->displayName($file, $extension),
+                    'mime_type' => (string) ($file->getMimeType() ?? 'application/octet-stream'),
+                    'size' => (int) $file->getSize(),
+                    'as_link' => $asLink,
+                ]);
+        } catch (Throwable $exception) {
+            Storage::disk($disk)->delete($path);
+
+            throw $exception;
+        }
+    }
+
+    /**
+     * @return list<CampaignAttachment>
+     */
+    public function missing(Campaign $campaign): array
+    {
+        return array_values($campaign->attachments()
+            ->get()
+            ->reject(fn (CampaignAttachment $attachment): bool => $this->exists($attachment))
+            ->all());
+    }
+
+    public function exists(CampaignAttachment $attachment): bool
+    {
+        return Storage::disk($attachment->disk)->exists($attachment->path);
     }
 
     public function linkExpiry(): CarbonImmutable

@@ -7,12 +7,14 @@ namespace J87NL\Mailing\Console;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use J87NL\Mailing\Attachments\CampaignAttachments;
 use J87NL\Mailing\Enums\CampaignStatus;
 use J87NL\Mailing\Enums\ConsentAction;
 use J87NL\Mailing\Enums\SubscriptionStatus;
 use J87NL\Mailing\Models\BounceEvent;
+use J87NL\Mailing\Models\Campaign;
 use J87NL\Mailing\Models\CampaignAttachment;
 use J87NL\Mailing\Models\ConsentRecord;
 use J87NL\Mailing\Models\Send;
@@ -60,18 +62,16 @@ class PruneMailingData extends Command
 
         $attachments = 0;
 
-        CampaignAttachment::query()
-            ->whereHas('campaign', fn (Builder $campaign) => $campaign
-                ->whereIn('status', [
-                    CampaignStatus::Sent,
-                    CampaignStatus::Cancelled,
-                ])
-                ->where('finished_at', '<', now()->subDays($campaignAttachments->retentionDays())))
-            ->chunkById(200, function (Collection $chunk) use (&$attachments): void {
-                foreach ($chunk as $attachment) {
-                    $attachment->delete();
-
-                    $attachments++;
+        Campaign::query()
+            ->whereIn('status', [
+                CampaignStatus::Sent,
+                CampaignStatus::Cancelled,
+            ])
+            ->where('finished_at', '<', now()->subDays($campaignAttachments->retentionDays()))
+            ->whereHas('attachments')
+            ->chunkById(50, function (Collection $campaigns) use (&$attachments): void {
+                foreach ($campaigns as $campaign) {
+                    $attachments += $this->pruneAttachments($campaign);
                 }
             });
 
@@ -160,6 +160,22 @@ class PruneMailingData extends Command
         });
 
         return $count;
+    }
+
+    private function pruneAttachments(Campaign $campaign): int
+    {
+        $attachments = $campaign->attachments()
+            ->get();
+
+        DB::transaction(fn () => Model::withoutTouchingOn([Campaign::class], fn () => Campaign::withoutTimestamps(function () use ($campaign, $attachments): void {
+            $attachments->each(fn (CampaignAttachment $attachment) => $attachment->delete());
+
+            $campaign->forceFill([
+                'attachments_pruned_at' => now(),
+            ])->save();
+        })));
+
+        return $attachments->count();
     }
 
     private function deleteWithRecords(Subscription $subscription): void

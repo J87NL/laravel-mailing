@@ -15,6 +15,7 @@ use J87NL\Mailing\Contracts\SpamScorer;
 use J87NL\Mailing\Drivers\DriverRegistry;
 use J87NL\Mailing\Mail\CampaignMail;
 use J87NL\Mailing\Models\Campaign;
+use J87NL\Mailing\Models\CampaignAttachment;
 use J87NL\Mailing\Senders\ListSender;
 use J87NL\Mailing\Support\EmailAddress;
 use Symfony\Component\Mime\Email;
@@ -53,6 +54,7 @@ class PreflightCheck
         $list = $campaign->mailingList;
         $driver = $this->drivers->for($list)->key();
         $domain = EmailAddress::domain($this->sender->for($list)->email);
+        $missing = $this->attachmentRules->missing($campaign);
 
         return [
             $this->spf($this->envelopeDomain($domain, $driver), $driver),
@@ -60,10 +62,10 @@ class PreflightCheck
             $this->dmarc($domain),
             $this->alignment($domain, $driver),
             ...($driver === 'postfix' ? [$this->blocklists()] : []),
-            $this->spamScore($campaign),
+            $this->spamScore($campaign, $missing),
             $this->links($campaign),
             $this->text($campaign),
-            ...($campaign->attachments()->exists() ? [$this->attachments($campaign)] : []),
+            ...($campaign->attachments()->exists() ? [$this->attachments($campaign, $missing)] : []),
         ];
     }
 
@@ -254,8 +256,15 @@ class PreflightCheck
         ]);
     }
 
-    private function spamScore(Campaign $campaign): PreflightItem
+    /**
+     * @param  list<CampaignAttachment>  $missing
+     */
+    private function spamScore(Campaign $campaign, array $missing): PreflightItem
     {
+        if ($missing !== []) {
+            return $this->item('spam_score', PreflightItem::WARNING, 'spam_score.skipped');
+        }
+
         $driver = $this->drivers->for($campaign->mailingList);
         $mail = (new CampaignMail($campaign))->withSymfonyMessage(fn (Email $message) => $driver->prepareTest($message, $campaign));
         $raw = $this->renderer->render($mail, 'preflight@example.org');
@@ -342,26 +351,39 @@ class PreflightCheck
         return $this->item('text', PreflightItem::OK, 'text.ok');
     }
 
-    private function attachments(Campaign $campaign): PreflightItem
+    /**
+     * @param  list<CampaignAttachment>  $missing
+     */
+    private function attachments(Campaign $campaign, array $missing): PreflightItem
     {
+        if ($missing !== []) {
+            return $this->item('attachments', PreflightItem::ERROR, 'attachments.missing', [
+                'names' => implode(', ', array_map(fn (CampaignAttachment $attachment): string => $attachment->name, $missing)),
+            ]);
+        }
+
         $attached = (int) $campaign->attachments()
             ->where('as_link', false)
             ->sum('size');
         $warnAt = $this->attachmentRules->warnTotalBytes();
+        $minText = max(0, (int) config('mailing.attachments.min_text_characters', 200));
+        $warnings = [];
 
         if ($attached > $warnAt) {
-            return $this->item('attachments', PreflightItem::WARNING, 'attachments.large', [
+            $warnings[] = (string) __('mailing::preflight.messages.attachments.large', [
                 'size' => CampaignAttachments::size($attached),
                 'max' => CampaignAttachments::size($warnAt),
             ]);
         }
 
-        $minText = max(0, (int) config('mailing.attachments.min_text_characters', 200));
-
         if ($attached > 0 && mb_strlen($this->visibleText($campaign)) < $minText) {
-            return $this->item('attachments', PreflightItem::WARNING, 'attachments.mostly_attachment', [
+            $warnings[] = (string) __('mailing::preflight.messages.attachments.mostly_attachment', [
                 'min' => $minText,
             ]);
+        }
+
+        if ($warnings !== []) {
+            return new PreflightItem('attachments', PreflightItem::WARNING, implode(' ', $warnings));
         }
 
         return $this->item('attachments', PreflightItem::OK, 'attachments.ok', [

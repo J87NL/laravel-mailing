@@ -80,7 +80,7 @@ class ChangeCampaignStatus
                 ->lockForUpdate()
                 ->first();
 
-            if (is_null($locked) || ! $locked->status->allowsRetry()) {
+            if (is_null($locked) || ! $locked->allowsRetry()) {
                 return 0;
             }
 

@@ -31,7 +31,20 @@ Unscheduling makes it a draft again.
 - All attachments of a campaign together may not exceed `max_total_kilobytes` (10 MB). The files
   already attached count, minus the ones removed in the same save.
 - The original name is kept for the recipient, cleaned of control characters and slashes, with
-  the extension of the detected type.
+  the extension of the detected type. A real PNG named `plan.pdf` is stored as `plan.png`.
+- The total is checked again inside the locked save, so two admins saving at the same moment cannot
+  pass the limit together.
+
+### Upload limits of PHP and the web server
+
+The package limit only applies to what reaches PHP. For 10 MB of attachments in one save, raise:
+
+- `upload_max_filesize` to at least the largest single file (10M), and `post_max_size` to the total
+  plus the rest of the form (for example 12M), in the `php.ini` of PHP-FPM;
+- the request body limit of the web server, such as `client_max_body_size 12m;` in nginx.
+
+Otherwise a large upload is cut off before validation and the composer shows a generic error, or
+the server answers 413.
 
 ## Attachment or download link
 
@@ -67,9 +80,25 @@ download link for large files, and only real attachments count towards that warn
   `X-Content-Type-Options: nosniff`, `Cache-Control: private, no-store`,
   `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex, nofollow`.
 - A deleted or pruned attachment gives a 404.
+- The route stays free of session and cookies even when `mailing.routes.public_middleware` contains
+  `web`: it removes `EncryptCookies`, `AddQueuedCookiesToResponse`, `StartSession`,
+  `ShareErrorsFromSession` and `PreventRequestForgery` (and their subclasses) for itself.
+
+The links are absolute URLs signed against `APP_URL` and the request scheme. Behind a proxy that
+ends TLS, set `APP_URL` to the `https://` address and trust the proxy (`TrustProxies`, or
+`$middleware->trustProxies(...)` in `bootstrap/app.php`). Otherwise the mail carries `http://`
+links, or the signature of an `https://` link fails with a 403 because the app sees `http`.
 
 Everyone who has the mail can open the link, also when it is forwarded. Do not attach anything
 that only some recipients may see.
+
+## A missing file
+
+When the file of an attachment is gone from the disk (deleted by hand, a disk that was not shared
+between servers), the [pre-flight check](preflight.md#attachments) turns red and names the file, so
+the campaign cannot be scheduled. The spam score is then not measured. A campaign that is already
+sending fails each send with the cause "The file of attachment ... is missing" instead of sending a
+mail without it. Remove the attachment and add it again.
 
 ## Retention
 
@@ -79,6 +108,16 @@ that only some recipients may see.
   `finished_at` is older than `retention_days` (30) days. The period is never shorter than
   `link_valid_days`, so a link in the last mail of a campaign keeps working until it expires.
 - Files are deleted after the database transaction commits.
+- Pruning sets `attachments_pruned_at` on the campaign without changing its `updated_at`. From then
+  on "Retry failed sends" is disabled with the reason, and the route refuses it, because a retried
+  mail would go out without its attachments. The campaign page shows the date.
+
+## Cost of the pre-flight spam check
+
+The spam score is measured on the real message, so the real attachments are part of the raw mail
+sent to rspamd. With 10 MB of attachments that is a 10 MB request each time the pre-flight runs
+(at most once per 10 minutes per campaign version, and when scheduling). That is on purpose: the
+attachments are part of what spam filters judge.
 
 ## Not over MCP
 

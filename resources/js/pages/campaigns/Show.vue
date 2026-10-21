@@ -167,6 +167,13 @@ async function run(action: MailingAction): Promise<void> {
                         })
                     }}
                 </p>
+                <p v-if="campaign.attachmentsPrunedAt" :class="ui.muted">
+                    {{
+                        $t('mailing::campaigns.show.attachments_pruned', {
+                            time: campaign.attachmentsPrunedAt,
+                        })
+                    }}
+                </p>
                 <dl class="grid grid-cols-2 gap-3 sm:grid-cols-5">
                     <div
                         v-for="count in counts"
@@ -185,8 +192,8 @@ async function run(action: MailingAction): Promise<void> {
                 </h2>
                 <ul class="flex flex-col gap-2">
                     <li
-                        v-for="(attachment, index) in attachments"
-                        :key="index"
+                        v-for="attachment in attachments"
+                        :key="attachment.id"
                         class="flex flex-wrap items-baseline gap-x-3 text-sm"
                     >
                         <span class="font-medium break-all">{{
