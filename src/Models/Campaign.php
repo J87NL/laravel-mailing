@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace J87NL\Mailing\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -25,6 +26,7 @@ use J87NL\Mailing\Enums\CampaignStatus;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read MailingList $mailingList
+ * @property-read Collection<int, CampaignAttachment> $attachments
  */
 class Campaign extends Model
 {
@@ -49,6 +51,15 @@ class Campaign extends Model
         'status' => 'draft',
     ];
 
+    protected static function booted(): void
+    {
+        static::deleting(function (Campaign $campaign): void {
+            $campaign->attachments()
+                ->get()
+                ->each(fn (CampaignAttachment $attachment) => $attachment->delete());
+        });
+    }
+
     /**
      * @return BelongsTo<MailingList, $this>
      */
@@ -63,6 +74,14 @@ class Campaign extends Model
     public function sends(): HasMany
     {
         return $this->hasMany(Send::class);
+    }
+
+    /**
+     * @return HasMany<CampaignAttachment, $this>
+     */
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(CampaignAttachment::class)->orderBy('id');
     }
 
     public function isEditable(): bool

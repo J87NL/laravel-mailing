@@ -12,6 +12,7 @@ return [
         'spam_score' => 'Spamscore',
         'links' => 'Links',
         'text' => 'Tekst',
+        'attachments' => 'Bijlagen',
     ],
     'messages' => [
         'spf' => [
@@ -53,6 +54,11 @@ return [
         'text' => [
             'missing' => 'De mail heeft te weinig tekst of geen tekstversie.',
             'ok' => 'Tekst en tekstversie aanwezig.',
+        ],
+        'attachments' => [
+            'large' => 'De bijlagen zijn samen :size; boven :max schaden ze de bezorging. Verstuur grote bestanden liever als downloadlink.',
+            'mostly_attachment' => 'De mail bestaat vooral uit een bijlage: de tekst is korter dan :min tekens. Spamfilters wantrouwen dat; zet de inhoud ook in de mail zelf.',
+            'ok' => 'Bijlagen samen :size.',
         ],
     ],
 ];

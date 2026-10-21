@@ -8,6 +8,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use J87NL\Mailing\Attachments\CampaignAttachments;
 use J87NL\Mailing\Contracts\DnsResolver;
 use J87NL\Mailing\Contracts\HtmlSanitizer;
 use J87NL\Mailing\Contracts\SpamScorer;
@@ -41,6 +42,7 @@ class PreflightCheck
         private readonly ListSender $sender,
         private readonly RawMessageRenderer $renderer,
         private readonly HtmlSanitizer $sanitizer,
+        private readonly CampaignAttachments $attachmentRules,
     ) {}
 
     /**
@@ -61,6 +63,7 @@ class PreflightCheck
             $this->spamScore($campaign),
             $this->links($campaign),
             $this->text($campaign),
+            ...($campaign->attachments()->exists() ? [$this->attachments($campaign)] : []),
         ];
     }
 
@@ -330,13 +333,45 @@ class PreflightCheck
 
     private function text(Campaign $campaign): PreflightItem
     {
-        $visible = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($this->sanitizer->sanitize($campaign->body_html)), ENT_QUOTES | ENT_HTML5)));
+        $visible = $this->visibleText($campaign);
 
         if (mb_strlen($visible) < self::MIN_TEXT_LENGTH || trim($campaign->body_text) === '') {
             return $this->item('text', PreflightItem::ERROR, 'text.missing');
         }
 
         return $this->item('text', PreflightItem::OK, 'text.ok');
+    }
+
+    private function attachments(Campaign $campaign): PreflightItem
+    {
+        $attached = (int) $campaign->attachments()
+            ->where('as_link', false)
+            ->sum('size');
+        $warnAt = $this->attachmentRules->warnTotalBytes();
+
+        if ($attached > $warnAt) {
+            return $this->item('attachments', PreflightItem::WARNING, 'attachments.large', [
+                'size' => CampaignAttachments::size($attached),
+                'max' => CampaignAttachments::size($warnAt),
+            ]);
+        }
+
+        $minText = max(0, (int) config('mailing.attachments.min_text_characters', 200));
+
+        if ($attached > 0 && mb_strlen($this->visibleText($campaign)) < $minText) {
+            return $this->item('attachments', PreflightItem::WARNING, 'attachments.mostly_attachment', [
+                'min' => $minText,
+            ]);
+        }
+
+        return $this->item('attachments', PreflightItem::OK, 'attachments.ok', [
+            'size' => CampaignAttachments::size($attached),
+        ]);
+    }
+
+    private function visibleText(Campaign $campaign): string
+    {
+        return trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($this->sanitizer->sanitize($campaign->body_html)), ENT_QUOTES | ENT_HTML5)));
     }
 
     private function finalStatus(string $url, float $deadline): ?int

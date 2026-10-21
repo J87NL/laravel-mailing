@@ -362,6 +362,40 @@ A host that published `config/mailing.php` before 0.2.2 has its own `signup` arr
 
 See [Imports](imports.md).
 
+## Attachments
+
+```php
+'attachments' => [
+    'disk' => env('MAILING_ATTACHMENTS_DISK', 'local'),
+    'directory' => 'mailing/attachments',
+    'extensions' => [
+        'pdf',
+        'jpg',
+        'png',
+    ],
+    'max_total_kilobytes' => 10240,
+    'warn_total_kilobytes' => 2048,
+    'min_text_characters' => 200,
+    'default_as_link' => false,
+    'link_valid_days' => 30,
+    'retention_days' => 30,
+],
+```
+
+| Key                    | Description                                                                 |
+| ---------------------- | --------------------------------------------------------------------------- |
+| `disk`                 | A private filesystem disk for the files.                                    |
+| `directory`            | The folder on that disk.                                                    |
+| `extensions`           | Allowed types, checked on the file name and on the content.                |
+| `max_total_kilobytes`  | The maximum size of all attachments of one campaign together.               |
+| `warn_total_kilobytes` | The pre-flight check warns when the real attachments are larger.            |
+| `min_text_characters`  | The pre-flight check warns when a mail with a real attachment has less text. |
+| `default_as_link`      | Whether new files go as a download link by default.                         |
+| `link_valid_days`      | How long a download link works after the mail is rendered.                 |
+| `retention_days`       | Days after a campaign finished before its attachments are pruned; at least `link_valid_days`. |
+
+See [Attachments](campaigns/attachments.md).
+
 ## Retention
 
 ```php
@@ -397,6 +431,7 @@ See [Retention](retention.md).
 | `MAILING_LIST_ID_DOMAIN`         | `list_id_domain`                         |
 | `LETTERMINT_WEBHOOK_SECRET`      | `drivers.lettermint.webhook_secret`      |
 | `MAILING_QUEUE`                  | `sending.queue`                          |
+| `MAILING_ATTACHMENTS_DISK`       | `attachments.disk`                       |
 | `MAILING_BOUNCE_DOMAIN`          | `bounces.domain`                         |
 | `MAILING_POSTFIX_LOG_PATH`       | `postfix_log.path`                       |
 | `MAILING_RSPAMD_URL`             | `preflight.rspamd.url`                   |

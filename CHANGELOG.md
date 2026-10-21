@@ -4,6 +4,13 @@ All notable changes to this package are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Campaign attachments: add PDF, JPG or PNG files in the composer (types, a 10 MB total and the private disk are configurable under `mailing.attachments`). They can only change while the campaign is a draft, and go along with every campaign mail and test mail.
+- Per attachment, "send as download link": the mail gets a Downloads block with a temporary signed URL (30 days) served by the package at `/mailing/attachments/{token}`, without session or cookie. Real attachments are the default.
+- The pre-flight check gets an `attachments` item that warns when the real attachments exceed 2 MB together, or when a mail with an attachment has less than 200 characters of text.
+- `mailing:prune` deletes the attachments of sent and cancelled campaigns 30 days after they finished, never before their links expire. Deleting a draft deletes its files. A new migration adds `mailing_campaign_attachments`.
+
 ## [0.2.3] - 2026-10-21
 
 ### Added

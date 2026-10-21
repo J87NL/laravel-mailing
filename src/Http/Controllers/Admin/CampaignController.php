@@ -14,6 +14,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use J87NL\Mailing\Actions\ChangeCampaignStatus;
 use J87NL\Mailing\Actions\SaveCampaign;
+use J87NL\Mailing\Attachments\CampaignAttachments;
 use J87NL\Mailing\Contracts\MailingDriver;
 use J87NL\Mailing\Drivers\DriverRegistry;
 use J87NL\Mailing\Enums\CampaignStatus;
@@ -26,6 +27,7 @@ use J87NL\Mailing\Mail\CampaignMail;
 use J87NL\Mailing\Mail\TransportFailure;
 use J87NL\Mailing\MailingPermission;
 use J87NL\Mailing\Models\Campaign;
+use J87NL\Mailing\Models\CampaignAttachment;
 use J87NL\Mailing\Models\MailingList;
 use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Preflight\PreflightCheck;
@@ -89,7 +91,7 @@ class CampaignController extends Controller
             return $this->locked($campaign);
         }
 
-        return $this->composer($campaign->subject, route('mailing.campaigns.edit', $campaign), CampaignForm::make()
+        return $this->composer($campaign->subject, route('mailing.campaigns.edit', $campaign), CampaignForm::make($campaign)
             ->action(route('mailing.campaigns.update', $campaign))
             ->method('PUT')
             ->fill([
@@ -98,6 +100,11 @@ class CampaignController extends Controller
                 'preheader' => $campaign->preheader,
                 'body_html' => $campaign->body_html,
                 'body_text' => $campaign->body_text,
+                'attachment_links' => $campaign->attachments()
+                    ->where('as_link', true)
+                    ->pluck('id')
+                    ->map(fn (mixed $id): string => (string) $id)
+                    ->all(),
             ]));
     }
 
@@ -107,7 +114,7 @@ class CampaignController extends Controller
             return $this->locked($campaign);
         }
 
-        if (! $saveCampaign->handle($campaign, CampaignForm::make()->validate($request), $this->userId($request))) {
+        if (! $saveCampaign->handle($campaign, CampaignForm::make($campaign)->validate($request), $this->userId($request))) {
             return $this->locked($campaign->refresh());
         }
 
@@ -131,7 +138,10 @@ class CampaignController extends Controller
 
     public function show(Request $request, Campaign $campaign, PreflightCheck $preflight, DriverRegistry $drivers): Response
     {
-        $campaign->loadMissing('mailingList');
+        $campaign->loadMissing([
+            'mailingList',
+            'attachments',
+        ]);
 
         $user = $request->user();
         $canEdit = (bool) $user?->can(MailingPermission::CampaignsEdit->value);
@@ -169,6 +179,14 @@ class CampaignController extends Controller
                 ],
                 SendStatus::cases(),
             ),
+            'attachments' => $campaign->attachments
+                ->map(fn (CampaignAttachment $attachment): array => [
+                    'name' => $attachment->name,
+                    'size' => CampaignAttachments::size($attachment->size),
+                    'delivery' => (string) __(sprintf('mailing::campaigns.attachments.%s', $attachment->as_link ? 'as_link' : 'as_attachment')),
+                ])
+                ->values()
+                ->all(),
             'preflight' => array_map(fn (PreflightItem $item): array => $item->toArray(), $items),
             'actions' => $this->actions($campaign, $canEdit, $canSend),
             'scheduleForm' => $canSend && $campaign->status === CampaignStatus::Draft && is_null($scheduleBlocked) ? ScheduleForm::make()

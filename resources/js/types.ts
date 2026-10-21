@@ -32,6 +32,12 @@ export type MailingAction = {
     variant: 'default' | 'destructive';
 };
 
+export type MailingAttachment = {
+    name: string;
+    size: string;
+    delivery: string;
+};
+
 export type MailingPreflightItem = {
     key: string;
     status: 'ok' | 'warning' | 'error';

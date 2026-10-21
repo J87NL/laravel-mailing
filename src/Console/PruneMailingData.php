@@ -8,9 +8,12 @@ use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use J87NL\Mailing\Attachments\CampaignAttachments;
+use J87NL\Mailing\Enums\CampaignStatus;
 use J87NL\Mailing\Enums\ConsentAction;
 use J87NL\Mailing\Enums\SubscriptionStatus;
 use J87NL\Mailing\Models\BounceEvent;
+use J87NL\Mailing\Models\CampaignAttachment;
 use J87NL\Mailing\Models\ConsentRecord;
 use J87NL\Mailing\Models\Send;
 use J87NL\Mailing\Models\Subscriber;
@@ -21,9 +24,9 @@ class PruneMailingData extends Command
 {
     protected $signature = 'mailing:prune';
 
-    protected $description = 'Delete unconfirmed sign-ups and expired consent records of unsubscribed addresses';
+    protected $description = 'Delete unconfirmed sign-ups and expired consent records of unsubscribed addresses, and attachments of finished campaigns';
 
-    public function handle(): int
+    public function handle(CampaignAttachments $campaignAttachments): int
     {
         $unconfirmed = $this->pruneUnconfirmed(
             Subscription::query()
@@ -55,12 +58,29 @@ class PruneMailingData extends Command
             ->where('created_at', '<', $sendCutoff)
             ->delete();
 
+        $attachments = 0;
+
+        CampaignAttachment::query()
+            ->whereHas('campaign', fn (Builder $campaign) => $campaign
+                ->whereIn('status', [
+                    CampaignStatus::Sent,
+                    CampaignStatus::Cancelled,
+                ])
+                ->where('finished_at', '<', now()->subDays($campaignAttachments->retentionDays())))
+            ->chunkById(200, function (Collection $chunk) use (&$attachments): void {
+                foreach ($chunk as $attachment) {
+                    $attachment->delete();
+
+                    $attachments++;
+                }
+            });
+
         $subscribers = Subscriber::query()
             ->whereDoesntHave('subscriptions')
             ->where('updated_at', '<', now()->subDays((int) config('mailing.retention.unconfirmed_days', 30)))
             ->delete();
 
-        $this->info(sprintf('Pruned or ended %d unconfirmed and pruned %d ended subscriptions, %d subscribers and %d send records.', $unconfirmed, $ended, $subscribers, $sends));
+        $this->info(sprintf('Pruned or ended %d unconfirmed and pruned %d ended subscriptions, %d subscribers, %d send records and %d attachments.', $unconfirmed, $ended, $subscribers, $sends, $attachments));
 
         return self::SUCCESS;
     }

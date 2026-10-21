@@ -10,6 +10,7 @@ import { useConfirm } from '@mailing/composables/useConfirm';
 import { useErrors } from '@mailing/composables/useErrors';
 import type {
     MailingAction,
+    MailingAttachment,
     MailingBreadcrumb,
     MailingCampaign,
     MailingPreflightItem,
@@ -20,6 +21,7 @@ import { watch } from 'vue';
 const props = defineProps<{
     campaign: MailingCampaign;
     counts: { status: string; label: string; count: number }[];
+    attachments: MailingAttachment[];
     preflight: MailingPreflightItem[];
     actions: MailingAction[];
     scheduleForm: FormSchema | null;
@@ -175,6 +177,25 @@ async function run(action: MailingAction): Promise<void> {
                         <dd class="text-lg font-semibold">{{ count.count }}</dd>
                     </div>
                 </dl>
+            </section>
+
+            <section v-if="attachments.length > 0" :class="ui.panel">
+                <h2 :class="ui.heading">
+                    {{ $t('mailing::campaigns.show.attachments') }}
+                </h2>
+                <ul class="flex flex-col gap-2">
+                    <li
+                        v-for="(attachment, index) in attachments"
+                        :key="index"
+                        class="flex flex-wrap items-baseline gap-x-3 text-sm"
+                    >
+                        <span class="font-medium break-all">{{
+                            attachment.name
+                        }}</span>
+                        <span :class="ui.muted">{{ attachment.size }}</span>
+                        <span :class="ui.muted">{{ attachment.delivery }}</span>
+                    </li>
+                </ul>
             </section>
 
             <section v-if="preflight.length > 0" :class="ui.panel">

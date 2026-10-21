@@ -13,6 +13,7 @@
 | GET    | `/mailing/assets/confirm.js`      | `mailing.confirm.script`     | 60 per minute              |
 | GET    | `/mailing/unsubscribe/{token}`    | `mailing.unsubscribe.show`   | 10 per minute per token    |
 | POST   | `/mailing/unsubscribe/{token}`    | `mailing.unsubscribe.store`  | 10 per minute per token    |
+| GET    | `/mailing/attachments/{token}`    | `mailing.attachments.download` | 60 per minute            |
 | POST   | `/mailing/webhooks/{driver}`      | `mailing.webhooks`           | 600 per minute             |
 
 They run without the `web` middleware group: no session, no cookies, no CSRF token. Each POST is
@@ -24,6 +25,8 @@ protected in its own way:
   a same-origin script, see [Content Security Policy](#content-security-policy).
 - **Unsubscribe:** a random 48-character token per subscription. The GET only shows the choices.
 - **Webhooks:** the signature check of the driver.
+- **Attachment downloads:** a temporary signed URL with a random 40-character token, see
+  [Attachments](campaigns/attachments.md#the-download-route).
 
 Adding `web` to `mailing.routes.public_middleware` would add a session cookie and CSRF
 verification. The sign-up form has no CSRF field, and one-click unsubscribe POSTs from mail clients

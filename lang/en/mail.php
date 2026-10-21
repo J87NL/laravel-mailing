@@ -19,5 +19,7 @@ return [
         'sender' => 'Sent by :sender.',
         'reason' => 'You receive this mail because you signed up for :list.',
         'unsubscribe' => 'Unsubscribe',
+        'downloads' => 'Downloads',
+        'downloads_until' => 'These download links work until :date.',
     ],
 ];

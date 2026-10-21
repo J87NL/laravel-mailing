@@ -6,15 +6,19 @@ namespace J87NL\Mailing\Mail;
 
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Address;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Mail\Mailables\Headers;
 use Illuminate\Support\Str;
+use J87NL\Mailing\Attachments\CampaignAttachments;
 use J87NL\Mailing\Contracts\HtmlSanitizer;
 use J87NL\Mailing\Html\EmailStyler;
 use J87NL\Mailing\Models\Campaign;
+use J87NL\Mailing\Models\CampaignAttachment;
 use J87NL\Mailing\Models\Subscription;
 use J87NL\Mailing\Senders\ListSender;
+use J87NL\Mailing\Support\MailingTime;
 
 class CampaignMail extends Mailable
 {
@@ -53,6 +57,8 @@ class CampaignMail extends Mailable
         $list = $this->campaign->mailingList;
         $headers = app(ListHeaders::class);
         $unsubscribeUrl = is_null($this->subscription) ? $headers->previewUnsubscribeUrl() : $headers->unsubscribeUrl($this->subscription);
+        $attachments = app(CampaignAttachments::class);
+        $until = $attachments->linkExpiry();
 
         return new Content(
             view: 'mailing::mail.campaign',
@@ -65,7 +71,31 @@ class CampaignMail extends Mailable
                 'listName' => $list->name,
                 'senderName' => app(ListSender::class)->for($list)->label(),
                 'unsubscribeUrl' => $unsubscribeUrl,
+                'downloads' => $this->campaign->attachments
+                    ->filter(fn (CampaignAttachment $attachment): bool => $attachment->as_link)
+                    ->map(fn (CampaignAttachment $attachment): array => [
+                        'name' => $attachment->name,
+                        'size' => CampaignAttachments::size($attachment->size),
+                        'url' => $attachments->downloadUrl($attachment, $until),
+                    ])
+                    ->values()
+                    ->all(),
+                'downloadsUntil' => (string) MailingTime::format($until, 'D MMMM YYYY'),
             ],
         );
+    }
+
+    /**
+     * @return list<Attachment>
+     */
+    public function attachments(): array
+    {
+        return $this->campaign->attachments
+            ->reject(fn (CampaignAttachment $attachment): bool => $attachment->as_link)
+            ->map(fn (CampaignAttachment $attachment): Attachment => Attachment::fromStorageDisk($attachment->disk, $attachment->path)
+                ->as($attachment->name)
+                ->withMime($attachment->mime_type))
+            ->values()
+            ->all();
     }
 }

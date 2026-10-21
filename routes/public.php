@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Routing\Middleware\ValidateSignature;
 use Illuminate\Support\Facades\Route;
+use J87NL\Mailing\Http\Controllers\Public\AttachmentDownloadController;
 use J87NL\Mailing\Http\Controllers\Public\ConfirmationController;
 use J87NL\Mailing\Http\Controllers\Public\ConfirmationScriptController;
 use J87NL\Mailing\Http\Controllers\Public\SignupController;
@@ -44,6 +46,14 @@ Route::middleware([
         Route::post('unsubscribe/{token}', [UnsubscribeController::class, 'store'])
             ->middleware('throttle:mailing-unsubscribe')
             ->name('unsubscribe.store');
+
+        Route::get('attachments/{token}', AttachmentDownloadController::class)
+            ->middleware([
+                ValidateSignature::class,
+                'throttle:60,1',
+            ])
+            ->where('token', '[A-Za-z0-9]{40}')
+            ->name('attachments.download');
 
         Route::post('webhooks/{driver}', WebhookController::class)
             ->middleware('throttle:600,1')
