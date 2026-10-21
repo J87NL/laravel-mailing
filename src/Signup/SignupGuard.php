@@ -12,9 +12,9 @@ class SignupGuard
 
     public const string TIMESTAMP = 'form_token';
 
-    public function token(int $listId): string
+    public function token(int $listId, bool $resubmission = false): string
     {
-        $time = now()->getTimestamp();
+        $time = now()->getTimestamp() - ($resubmission ? (int) config('mailing.signup.min_seconds', 3) : 0);
 
         return sprintf('%d.%s', $time, $this->signature($listId, $time));
     }

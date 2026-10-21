@@ -27,12 +27,13 @@ final readonly class SignupForm
         string $title = '',
         string $intro = '',
         string $buttonLabel = '',
+        bool $resubmission = false,
     ): array {
         return [
             'list' => $list,
             'anchor' => self::anchor($list),
             'action' => route('mailing.subscribe.store', $list),
-            'token' => $this->guard->token($list->id),
+            'token' => $this->guard->token($list->id, $resubmission),
             'returnTo' => $returnTo,
             'title' => $title,
             'intro' => $intro,

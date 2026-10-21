@@ -84,6 +84,9 @@ $this->post(route('mailing.subscribe.store', $list), [
 ])->assertRedirect();
 ```
 
+`app(SignupGuard::class)->token($list->id, resubmission: true)` gives the token of a form shown
+again after a `422`; it may be posted at once, without travelling in time.
+
 The confirmation mail is a queued mailable, so `Mail::fake()` and `Mail::assertQueued()` see it:
 
 ```php

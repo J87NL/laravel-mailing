@@ -4,6 +4,11 @@ All notable changes to this package are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- A visitor who corrected the address after a `422` and posted again within `mailing.signup.min_seconds` got the silent success, and nothing was stored. A form shown again after an error now carries a token dated `min_seconds` in the past: `SignupGuard::token(int $listId, bool $resubmission = false)`, as `ContactFormGuard` in laravel-cms 0.2.2.
+- A sign-up form shown again after an error on the sign-up page dropped the `return_to` of a post from a CMS page, so the corrected sign-up redirected to the standalone page and recorded it as the consent source. The form now keeps the `return_to`.
+
 ## [0.2.3] - 2026-10-21
 
 ### Added

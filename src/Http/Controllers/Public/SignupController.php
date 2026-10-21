@@ -43,7 +43,7 @@ class SignupController extends Controller
         if ($this->limiter->tooManyFromIp($request)) {
             return $this->page($request, $list, new MessageBag([
                 'form' => __('mailing::signup.too_many'),
-            ]), 429)->header('Retry-After', (string) $this->limiter->retryAfterForIp($request));
+            ]), 429, $returnTo)->header('Retry-After', (string) $this->limiter->retryAfterForIp($request));
         }
 
         $verdict = $this->guard->verdict($request, $list->id);
@@ -59,7 +59,7 @@ class SignupController extends Controller
         if ($verdict === SignupVerdict::Expired) {
             return $this->page($request, $list, new MessageBag([
                 'form' => __('mailing::signup.expired'),
-            ]), 422);
+            ]), 422, $returnTo);
         }
 
         $validator = Validator::make($request->only([
@@ -83,7 +83,7 @@ class SignupController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return $this->page($request, $list, $validator->errors(), 422);
+            return $this->page($request, $list, $validator->errors(), 422, $returnTo);
         }
 
         $email = (string) $validator->validated()['email'];
@@ -98,7 +98,7 @@ class SignupController extends Controller
         if (! $this->limiter->claimOverall()) {
             return $this->page($request, $list, new MessageBag([
                 'form' => __('mailing::signup.too_many'),
-            ]), 429)->header('Retry-After', (string) $this->limiter->retryAfterOverall());
+            ]), 429, $returnTo)->header('Retry-After', (string) $this->limiter->retryAfterOverall());
         }
 
         $requestSubscription->handle(
@@ -115,14 +115,14 @@ class SignupController extends Controller
         return redirect(SignupForm::successUrl($list, $returnTo), 303);
     }
 
-    private function page(Request $request, MailingList $list, ?MessageBag $errors = null, int $status = 200): Response
+    private function page(Request $request, MailingList $list, ?MessageBag $errors = null, int $status = 200, ?string $returnTo = null): Response
     {
         return response()->view('mailing::public.subscribe', [
             'list' => $list,
             'form' => $this->form->data(
                 $list,
                 $request,
-                null,
+                $returnTo,
                 $errors,
                 [
                     'email' => (string) $request->input('email', ''),
@@ -130,6 +130,8 @@ class SignupController extends Controller
                 ],
                 '',
                 (string) $list->description,
+                '',
+                $status === 422,
             ),
         ], $status);
     }

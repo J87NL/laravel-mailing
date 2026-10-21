@@ -33,7 +33,13 @@ session. Instead of a CSRF token it is protected by:
 - **A signed timestamp.** A hidden field `form_token` with the render time and an HMAC over the
   list id and that time, keyed with `app.key`. A missing or wrong signature is a bot.
 - **A minimum and maximum age.** A form posted within `mailing.signup.min_seconds` (3) of rendering
-  is a bot. A form older than `mailing.signup.max_seconds` (48 hours) is expired.
+  is a bot, except a form shown again after a `422` (see below). A form older than
+  `mailing.signup.max_seconds` (48 hours) is expired.
+- **Resubmissions.** A form shown again with a `422` (expired, or invalid input) carries a token
+  dated `min_seconds` in the past (`SignupGuard::token($listId, resubmission: true)`), so a visitor
+  who corrects the address can post it again at once. Only a post that already passed the honeypot
+  and the age check gets such a form; a bot still gets the silent success. A `429` page carries a
+  normal token.
 - **Rate limits** per IP address, per email address and overall.
 
 ## What happens on a post
@@ -42,8 +48,8 @@ session. Instead of a CSRF token it is protected by:
    header.
 2. A bot gets the normal success redirect, so it learns nothing. It counts against its IP address.
 3. An expired form is shown again with "This form has expired. Please try again." and a fresh
-   token (`422`). It also counts against the IP address.
-4. Invalid input is shown again with the validation errors (`422`).
+   resubmission token (`422`). It also counts against the IP address.
+4. Invalid input is shown again with the validation errors and a resubmission token (`422`).
 5. The attempt counts against the IP address.
 6. When the email address is over `per_address_per_hour` or `per_address_per_day`, the visitor gets
    the normal success redirect and nothing is sent.
@@ -120,11 +126,16 @@ public function data(
     string $title = '',
     string $intro = '',
     string $buttonLabel = '',
+    bool $resubmission = false,
 ): array
 ```
 
-An empty button label uses `mailing::signup.button`. Validation errors of a failed post are shown on
-the sign-up page itself, not on the page the form came from.
+An empty button label uses `mailing::signup.button`. Pass `resubmission: true` only when you show
+the form again after a `422`, so the visitor can post the corrected form at once.
+
+Validation errors of a failed post are shown on the sign-up page itself, not on the page the form
+came from. That form keeps the `return_to` of the post, so the corrected sign-up still returns to
+the page it came from and records that page as the consent source.
 
 The static helpers `SignupForm::anchor($list)`, `SignupForm::succeeded($request, $list)`,
 `SignupForm::successUrl($list, $returnTo)`, `SignupForm::successQuery()` and

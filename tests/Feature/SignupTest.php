@@ -400,3 +400,147 @@ test('the consent source names the page, limited in length', function (): void {
     expect($source)->toStartWith('signup: /aaa')
         ->and(mb_strlen($source))->toBeLessThanOrEqual(220);
 });
+
+function renderedSignupToken(string $html): string
+{
+    preg_match(sprintf('/name="%s" value="([^"]+)"/', SignupGuard::TIMESTAMP), $html, $matches);
+
+    expect($matches[1] ?? '')->not->toBe('');
+
+    return $matches[1];
+}
+
+function renderedReturnTo(string $html): ?string
+{
+    preg_match('/name="return_to" value="([^"]+)"/', $html, $matches);
+
+    return isset($matches[1]) ? html_entity_decode($matches[1]) : null;
+}
+
+test('a visitor who fixes an invalid address and resubmits at once is signed up', function (): void {
+    $response = $this->post('/mailing/nieuws/subscribe', signupPayload($this->list, [
+        'email' => 'geen-adres',
+    ]))->assertStatus(422);
+
+    $this->post('/mailing/nieuws/subscribe', [
+        'email' => 'hersteld@example.org',
+        SignupGuard::TIMESTAMP => renderedSignupToken($response->getContent()),
+    ])->assertRedirect('/mailing/nieuws/subscribe?aangemeld=nieuws#mailing-nieuws');
+
+    Mail::assertQueued(ConfirmSubscriptionMail::class, 1);
+
+    expect(Subscriber::query()
+        ->sole()->email)->toBe('hersteld@example.org');
+});
+
+test('a visitor whose form expired can resubmit at once', function (): void {
+    $this->travel(-3)->days();
+    $stale = app(SignupGuard::class)->token($this->list->id);
+    $this->travelBack();
+
+    $response = $this->post('/mailing/nieuws/subscribe', [
+        'email' => 'oud-tabblad@example.org',
+        SignupGuard::TIMESTAMP => $stale,
+    ])->assertStatus(422);
+
+    $this->post('/mailing/nieuws/subscribe', [
+        'email' => 'oud-tabblad@example.org',
+        SignupGuard::TIMESTAMP => renderedSignupToken($response->getContent()),
+    ])->assertRedirect('/mailing/nieuws/subscribe?aangemeld=nieuws#mailing-nieuws');
+
+    Mail::assertQueued(ConfirmSubscriptionMail::class, 1);
+});
+
+test('a first render posted within the minimum age still counts as a bot', function (): void {
+    $response = $this->get('/mailing/nieuws/subscribe')->assertOk();
+
+    $this->post('/mailing/nieuws/subscribe', [
+        'email' => 'snel@example.org',
+        SignupGuard::TIMESTAMP => renderedSignupToken($response->getContent()),
+    ])->assertRedirect('/mailing/nieuws/subscribe?aangemeld=nieuws#mailing-nieuws');
+
+    Mail::assertNothingQueued();
+
+    expect(Subscriber::query()
+        ->count())->toBe(0);
+});
+
+test('a resubmission token is only valid for its own list', function (): void {
+    $other = makeList([
+        'key' => 'ander',
+        'name' => 'Andere lijst',
+    ]);
+
+    $response = $this->post('/mailing/nieuws/subscribe', signupPayload($this->list, [
+        'email' => 'geen-adres',
+    ]))->assertStatus(422);
+
+    $this->post('/mailing/ander/subscribe', [
+        'email' => 'hersteld@example.org',
+        SignupGuard::TIMESTAMP => renderedSignupToken($response->getContent()),
+    ])->assertRedirect('/mailing/ander/subscribe?aangemeld=ander#mailing-ander');
+
+    Mail::assertNothingQueued();
+
+    expect($other->subscriptions()
+        ->count())->toBe(0);
+});
+
+test('a form shown again because of the IP limit carries no resubmission token', function (): void {
+    config()->set('mailing.signup.per_ip_per_hour', 1);
+
+    $this->post('/mailing/nieuws/subscribe', [
+        'email' => 'eerste@example.org',
+        SignupGuard::HONEYPOT => 'spam',
+    ]);
+
+    $response = $this->post('/mailing/nieuws/subscribe', signupPayload($this->list))->assertStatus(429);
+
+    config()->set('mailing.signup.per_ip_per_hour', 100);
+
+    $this->post('/mailing/nieuws/subscribe', [
+        'email' => 'na-limiet@example.org',
+        SignupGuard::TIMESTAMP => renderedSignupToken($response->getContent()),
+    ])->assertRedirect('/mailing/nieuws/subscribe?aangemeld=nieuws#mailing-nieuws');
+
+    Mail::assertNothingQueued();
+});
+
+test('a form shown again because of the overall limit carries no resubmission token', function (): void {
+    config()->set('mailing.signup.global_per_hour', 1);
+
+    $this->post('/mailing/nieuws/subscribe', signupPayload($this->list))
+        ->assertRedirect('/mailing/nieuws/subscribe?aangemeld=nieuws#mailing-nieuws');
+
+    $response = $this->post('/mailing/nieuws/subscribe', signupPayload($this->list, [
+        'email' => 'tweede@example.org',
+    ]))->assertStatus(429);
+
+    config()->set('mailing.signup.global_per_hour', 100);
+
+    $this->post('/mailing/nieuws/subscribe', [
+        'email' => 'na-limiet@example.org',
+        SignupGuard::TIMESTAMP => renderedSignupToken($response->getContent()),
+    ])->assertRedirect('/mailing/nieuws/subscribe?aangemeld=nieuws#mailing-nieuws');
+
+    Mail::assertQueued(ConfirmSubscriptionMail::class, 1);
+
+    expect(Subscriber::query()
+        ->where('email', 'na-limiet@example.org')->exists())->toBeFalse();
+});
+
+test('a corrected sign-up from a page still returns to that page and names it as the source', function (): void {
+    $response = $this->post('/mailing/nieuws/subscribe', signupPayload($this->list, [
+        'email' => 'geen-adres',
+        'return_to' => '/nieuwsbrief',
+    ]))->assertStatus(422);
+
+    $this->post('/mailing/nieuws/subscribe', [
+        'email' => 'hersteld@example.org',
+        'return_to' => renderedReturnTo($response->getContent()),
+        SignupGuard::TIMESTAMP => renderedSignupToken($response->getContent()),
+    ])->assertRedirect('/nieuwsbrief?aangemeld=nieuws#mailing-nieuws');
+
+    expect(Subscription::query()
+        ->sole()->consent_source)->toBe('signup: /nieuwsbrief');
+});
