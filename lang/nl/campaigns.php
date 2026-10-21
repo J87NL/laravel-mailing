@@ -84,6 +84,7 @@ return [
         'authentication' => 'De mailserver accepteerde de inloggegevens niet.',
         'rejected' => 'De mailserver weigerde de mail (code :code).',
         'deferred' => 'De mailserver vroeg om het later opnieuw te proberen (code :code).',
+        'unavailable' => 'De mailservice is tijdelijk niet bereikbaar (code :code).',
         'unknown' => 'De mailserver gaf een onbekende fout; die staat in het logboek.',
     ],
     'flash' => [

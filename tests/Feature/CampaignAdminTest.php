@@ -23,6 +23,7 @@ use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Preflight\PreflightCheck;
 use J87NL\Mailing\Preflight\PreflightItem;
 use J87NL\Mailing\Sending\Verp;
+use J87NL\Mailing\Tests\Fakes\ApiFailureTransport;
 use J87NL\Mailing\Tests\Fakes\FakeDnsResolver;
 use J87NL\Mailing\Tests\Fakes\FakeSpamScorer;
 use J87NL\Mailing\Tests\Fakes\RecipientRejectingTransport;
@@ -247,6 +248,63 @@ test('a test mail that the mail server refuses shows the cause instead of an err
     'mail rejected' => [
         RejectingWith554Transport::class,
         'mailing::campaigns.transport_errors.rejected',
+    ],
+]);
+
+test('a mail API that answers with an HTTP status gets a cause that fits that status', function (int $status, string $cause): void {
+    Exceptions::fake();
+    Mail::extend('api', fn (): ApiFailureTransport => new ApiFailureTransport($status));
+    config()->set('mail.mailers.api', [
+        'transport' => 'api',
+    ]);
+    $this->list->update([
+        'mailer' => 'api',
+    ]);
+    $campaign = makeCampaign($this->list);
+
+    $this->actingWithPermissions([
+        MailingPermission::CampaignsEdit->value,
+        MailingPermission::CampaignsSend->value,
+    ]);
+
+    $this->post(route('mailing.campaigns.test', $campaign), [
+        'recipients' => 'johan@example.org',
+    ])
+        ->assertRedirect(route('mailing.campaigns.show', $campaign))
+        ->assertSessionHasErrors([
+            'recipients' => __('mailing::campaigns.errors.test_failed', [
+                'recipient' => 'johan@example.org',
+                'cause' => __($cause, [
+                    'code' => $status,
+                ]),
+            ]),
+        ]);
+
+    expect(sentMessages())->toHaveCount(0);
+})->with([
+    'unauthorized' => [
+        401,
+        'mailing::campaigns.transport_errors.authentication',
+    ],
+    'forbidden' => [
+        403,
+        'mailing::campaigns.transport_errors.authentication',
+    ],
+    'invalid request' => [
+        422,
+        'mailing::campaigns.transport_errors.rejected',
+    ],
+    'rate limited' => [
+        429,
+        'mailing::campaigns.transport_errors.deferred',
+    ],
+    'server error' => [
+        500,
+        'mailing::campaigns.transport_errors.unavailable',
+    ],
+    'service unavailable' => [
+        503,
+        'mailing::campaigns.transport_errors.unavailable',
     ],
 ]);
 

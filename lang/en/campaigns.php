@@ -84,6 +84,7 @@ return [
         'authentication' => 'The mail server did not accept the credentials.',
         'rejected' => 'The mail server rejected the mail (code :code).',
         'deferred' => 'The mail server asked to try again later (code :code).',
+        'unavailable' => 'The mail service is temporarily unavailable (code :code).',
         'unknown' => 'The mail server returned an unknown error; it is in the log.',
     ],
     'flash' => [
