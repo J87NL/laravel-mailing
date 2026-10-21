@@ -6,7 +6,7 @@ All notable changes to this package are documented here. The format follows [Kee
 
 ### Added
 
-- `mailing.signup.privacy_url` (`MAILING_PRIVACY_URL`): the sign-up form links to this privacy statement. Only `https://`, `http://` and local paths are used.
+- `mailing.signup.privacy_url` (`MAILING_PRIVACY_URL`): the sign-up form links to this privacy statement. It accepts a local path starting with one `/` (with query or fragment) or an `http`/`https` URL with a host.
 
 ### Fixed
 

@@ -67,7 +67,7 @@ and is tried once. It:
 | A transport error without a code                         | `failed`, response `interrupted` |
 | Any other exception                                      | `failed`      |
 
-A transport error without an SMTP code fails the send instead of retrying it, because the mail may
+A transport error without a code fails the send instead of retrying it, because the mail may
 have been accepted before the connection broke. The default retry delays are 15 minutes, 1 hour and
 4 hours.
 
@@ -78,7 +78,11 @@ test send:
 | Transport                         | Temporary              | Final                    |
 | --------------------------------- | ---------------------- | ------------------------ |
 | SMTP reply code                   | 4xx                    | 5xx and any other code   |
-| HTTP status of a mail API         | 408, 429 and 5xx       | every other 4xx          |
+| HTTP status of a mail API         | 408, 429 and 5xx       | every other 4xx and any other code |
+
+A 5xx of a mail API can come after the API already accepted the message, so a retry can deliver it
+twice. The Lettermint driver sends an `Idempotency-Key` per send, so Lettermint can recognise the
+retry; a driver for another HTTP transport without such a key carries that risk.
 
 See [Lettermint](../delivery/lettermint.md#errors-from-the-api).
 

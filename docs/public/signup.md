@@ -16,9 +16,13 @@ characters). Below the fields it shows the consent wording from `mailing::signup
 exact text is stored on the `requested` consent record.
 
 When `mailing.signup.privacy_url` (`MAILING_PRIVACY_URL`) is set, the form links to that privacy
-statement below the consent wording. Only an `https://` or `http://` URL or a local path such as
-`/privacy` is used; anything else leaves the link out. The link is not part of the stored consent
-wording.
+statement below the consent wording. The value is trimmed and then used when it is either:
+
+- a local path that starts with one `/`, such as `/privacy`, `/privacy#cookies` or
+  `/privacy?lang=en`, without whitespace; `//host` and `/\host` are refused, or
+- an absolute URL with the scheme `http` or `https` (in any case) and a host.
+
+Anything else leaves the link out. The link is not part of the stored consent wording.
 
 ## No session, no CSRF
 

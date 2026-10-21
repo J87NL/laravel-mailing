@@ -52,11 +52,25 @@ final readonly class SignupForm
             return null;
         }
 
-        if (str_starts_with($url, 'https://') || str_starts_with($url, 'http://') || self::isLocalPath($url)) {
+        $url = trim($url);
+
+        if (preg_match('#^/(?![/\\\\])\S*$#', $url) === 1) {
             return $url;
         }
 
-        return null;
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+        $host = (string) parse_url($url, PHP_URL_HOST);
+
+        $schemes = [
+            'http',
+            'https',
+        ];
+
+        if (! in_array($scheme, $schemes, true) || $host === '' || preg_match('/\s/', $url) === 1) {
+            return null;
+        }
+
+        return $url;
     }
 
     public static function anchor(MailingList $list): string

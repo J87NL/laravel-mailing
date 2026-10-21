@@ -227,11 +227,13 @@ test('a test mail is refused for a campaign that is no longer a draft', function
         ]);
 
     expect(sentMessages())->toHaveCount(0)
-        ->and(RateLimiter::attempts('mailing-test-send:1'))->toBe(0);
+        ->and(RateLimiter::attempts(sprintf('mailing-test-send:%d', auth()->id())))->toBe(0);
 })->with([
     'scheduled' => [CampaignStatus::Scheduled],
     'sending' => [CampaignStatus::Sending],
+    'paused' => [CampaignStatus::Paused],
     'sent' => [CampaignStatus::Sent],
+    'cancelled' => [CampaignStatus::Cancelled],
 ]);
 
 test('a test mail that the mail server refuses shows the cause instead of an error page', function (string $transport, string $cause): void {

@@ -24,7 +24,9 @@ use J87NL\Mailing\Sending\SendingLimits;
 use J87NL\Mailing\Sending\Verp;
 use J87NL\Mailing\Tests\Fakes\ApiFailureTransport;
 use J87NL\Mailing\Tests\Fakes\FailingTransport;
+use J87NL\Mailing\Tests\Fakes\HttpStatusTransport;
 use Symfony\Component\Mailer\SentMessage;
+use Symfony\Component\Mailer\Transport\AbstractTransport;
 use Symfony\Component\Mime\Email;
 
 beforeEach(function (): void {
@@ -534,8 +536,8 @@ test('a job that loses the claim gives its throttle slot back', function (): voi
             ->value('hits'))->toBe(1);
 });
 
-test('an HTTP API answer is retried only for a timeout, rate limit or server error', function (int $status, SendStatus $expected): void {
-    Mail::extend('api', fn (): ApiFailureTransport => new ApiFailureTransport($status));
+test('an HTTP API answer is retried only for a timeout, rate limit or server error', function (string $transport, int $status, SendStatus $expected): void {
+    Mail::extend('api', fn (): AbstractTransport => $transport === 'http' ? new HttpStatusTransport($status) : new ApiFailureTransport($status));
     config()->set('mail.mailers.api', [
         'transport' => 'api',
     ]);
@@ -551,8 +553,19 @@ test('an HTTP API answer is retried only for a timeout, rate limit or server err
     expect(Send::query()
         ->sole()->status)->toBe($expected);
 })->with([
+    'wrapped API error' => ['wrapped'],
+    'HttpTransportException' => ['http'],
+])->with([
     'unauthorized' => [
         401,
+        SendStatus::Failed,
+    ],
+    'forbidden' => [
+        403,
+        SendStatus::Failed,
+    ],
+    'not found' => [
+        404,
         SendStatus::Failed,
     ],
     'unprocessable' => [
@@ -565,6 +578,10 @@ test('an HTTP API answer is retried only for a timeout, rate limit or server err
     ],
     'too many requests' => [
         429,
+        SendStatus::Deferred,
+    ],
+    'internal server error' => [
+        500,
         SendStatus::Deferred,
     ],
     'service unavailable' => [
