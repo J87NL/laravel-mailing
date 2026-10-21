@@ -22,6 +22,7 @@ use J87NL\Mailing\Forms\CampaignForm;
 use J87NL\Mailing\Forms\ScheduleForm;
 use J87NL\Mailing\Forms\TestSendForm;
 use J87NL\Mailing\Mail\CampaignMail;
+use J87NL\Mailing\Mail\TransportFailure;
 use J87NL\Mailing\MailingPermission;
 use J87NL\Mailing\Models\Campaign;
 use J87NL\Mailing\Models\MailingList;
@@ -32,6 +33,7 @@ use J87NL\Mailing\Support\MailingTime;
 use J87NL\Mailing\Tables\CampaignTable;
 use J87NL\Mailing\Tables\SendTable;
 use Symfony\Component\Mime\Email;
+use Throwable;
 use TranquilTools\FormBuilder\FormConfig;
 
 class CampaignController extends Controller
@@ -285,19 +287,43 @@ class CampaignController extends Controller
         $campaign->loadMissing('mailingList');
         $driver = $drivers->for($campaign->mailingList);
 
+        $sent = [];
+        $failures = [];
+
         foreach ($recipients as $recipient) {
             RateLimiter::hit($limiterKey, 3600);
 
-            Mail::mailer($campaign->mailingList->mailer)
-                ->to($recipient)
-                ->send((new CampaignMail($campaign))->withSymfonyMessage(fn (Email $message) => $driver->prepareTest($message, $campaign)));
+            try {
+                Mail::mailer($campaign->mailingList->mailer)
+                    ->to($recipient)
+                    ->send((new CampaignMail($campaign))->withSymfonyMessage(fn (Email $message) => $driver->prepareTest($message, $campaign)));
+            } catch (Throwable $exception) {
+                report($exception);
+
+                $failures[] = (string) __('mailing::campaigns.errors.test_failed', [
+                    'recipient' => $recipient,
+                    'cause' => TransportFailure::describe($exception),
+                ]);
+
+                continue;
+            }
+
+            $sent[] = $recipient;
         }
 
-        $this->toast(__('mailing::campaigns.flash.test_sent', [
-            'recipients' => implode(', ', $recipients),
-        ]));
+        if ($sent !== []) {
+            $this->toast(__('mailing::campaigns.flash.test_sent', [
+                'recipients' => implode(', ', $sent),
+            ]));
+        }
 
-        return to_route('mailing.campaigns.show', $campaign);
+        if ($failures === []) {
+            return to_route('mailing.campaigns.show', $campaign);
+        }
+
+        return to_route('mailing.campaigns.show', $campaign)->withErrors([
+            'recipients' => implode(' ', $failures),
+        ]);
     }
 
     /**
