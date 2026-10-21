@@ -14,6 +14,9 @@ return [
         'suppressed' => 'This address is on the suppression list (:reason, since :date) and receives no mailings.',
         'created_at' => 'Known since :date',
     ],
+    'filters' => [
+        'all_statuses' => 'All statuses',
+    ],
     'fields' => [
         'email' => 'Email address',
         'name' => 'Name',

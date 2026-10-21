@@ -208,6 +208,43 @@ test('subscribers are exported as CSV with their lists', function (): void {
         ->and($csv)->toContain('Nieuwsbrief: '.__('mailing::enums.subscription_status.subscribed'));
 });
 
+test('the subscriber list shows subscribed addresses by default and others only when filtered', function (): void {
+    $list = makeList();
+    $other = makeList([
+        'key' => 'ander',
+        'name' => 'Ander',
+    ]);
+    makeSubscription($list, 'jan@example.org');
+    makeSubscription($list, 'piet@example.org', SubscriptionStatus::Unsubscribed);
+    makeSubscription($list, 'klaas@example.org', SubscriptionStatus::Unsubscribed);
+    makeSubscription($other, 'piet@example.org');
+
+    $this->actingWithPermissions([MailingPermission::Subscribers->value]);
+
+    $emails = fn (array $filter): array => collect($this->get(route('mailing.subscribers.index', [
+        'subscriber_filter' => $filter,
+    ]), [
+        'X-Inertia' => 'true',
+    ])->assertOk()->json('props.subscribers.data'))->pluck('email')->all();
+
+    expect($emails([]))->toBe([
+        'jan@example.org',
+        'piet@example.org',
+    ])
+        ->and($emails(['list' => (string) $list->id]))->toBe([
+            'jan@example.org',
+        ])
+        ->and($emails(['list' => (string) $list->id, 'status' => 'unsubscribed']))->toBe([
+            'klaas@example.org',
+            'piet@example.org',
+        ])
+        ->and($emails(['status' => '']))->toBe([
+            'jan@example.org',
+            'klaas@example.org',
+            'piet@example.org',
+        ]);
+});
+
 test('a manual suppression unsubscribes the address everywhere and can be lifted', function (): void {
     $list = makeList();
     $subscription = makeSubscription($list);

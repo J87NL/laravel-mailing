@@ -6,6 +6,7 @@ namespace J87NL\Mailing\Tables;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use J87NL\Mailing\Enums\SubscriptionStatus;
 use J87NL\Mailing\MailingPermission;
 use J87NL\Mailing\Models\MailingList;
 use J87NL\Mailing\Models\Subscriber;
@@ -51,6 +52,18 @@ final class SubscriberTable extends AbstractTable
                 fn (Builder $query, mixed $value): Builder => $query->whereHas('subscriptions', fn (Builder $subscriptions): Builder => $subscriptions->where('list_id', (int) $value)),
                 __('mailing::subscribers.fields.list'),
             )
+            ->callbackFilter(
+                'status',
+                collect(SubscriptionStatus::cases())
+                    ->mapWithKeys(fn (SubscriptionStatus $status): array => [
+                        $status->value => $status->label(),
+                    ])
+                    ->all(),
+                fn (Builder $query, mixed $value): Builder => $query->whereHas('subscriptions', fn (Builder $subscriptions): Builder => $this->onSelectedList($subscriptions, $table)->where('status', (string) $value)),
+                __('mailing::subscribers.fields.status'),
+                defaultValue: SubscriptionStatus::Subscribed->value,
+                noFilterOptionLabel: __('mailing::subscribers.filters.all_statuses'),
+            )
             ->column('email', __('mailing::subscribers.fields.email'), sortable: true)
             ->column('name', __('mailing::subscribers.fields.name'), sortable: true)
             ->column('subscriptions', __('mailing::subscribers.fields.subscriptions'), as: fn (mixed $value, Subscriber $subscriber): string => $this->summary($subscriber))
@@ -66,6 +79,21 @@ final class SubscriberTable extends AbstractTable
             url: fn (Subscriber $subscriber): string => route('mailing.subscribers.show', $subscriber),
             key: 'show',
         );
+    }
+
+    /**
+     * @param  Builder<Subscription>  $subscriptions
+     * @return Builder<Subscription>
+     */
+    private function onSelectedList(Builder $subscriptions, TableBuilder $table): Builder
+    {
+        $list = $table->filters()->get('list')?->value;
+
+        if (! is_numeric($list)) {
+            return $subscriptions;
+        }
+
+        return $subscriptions->where('list_id', (int) $list);
     }
 
     private function summary(Subscriber $subscriber): string

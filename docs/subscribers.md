@@ -26,8 +26,11 @@ the unsubscribe link and the `List-Unsubscribe` header.
 
 ## The subscriber list
 
-The index shows every address with its name, a summary of its subscriptions per list and the date
-it was added. It has a search on email and name, and a filter per list.
+The index shows addresses with their name, a summary of their subscriptions per list and the date
+they were added. It has a search on email and name, a filter per list and a status filter. The
+status filter starts on "subscribed", so unsubscribed, pending, bounced and complained addresses
+only show when you pick that status or "All statuses". With a list chosen, the status applies to the
+subscription on that list.
 
 ### CSV export
 

@@ -14,6 +14,9 @@ return [
         'suppressed' => 'Dit adres staat op de blokkeerlijst (:reason, sinds :date) en ontvangt geen mailings.',
         'created_at' => 'Bekend sinds :date',
     ],
+    'filters' => [
+        'all_statuses' => 'Alle statussen',
+    ],
     'fields' => [
         'email' => 'E-mailadres',
         'name' => 'Naam',

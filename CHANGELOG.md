@@ -4,6 +4,12 @@ All notable changes to this package are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-21
+
+### Changed
+
+- The subscriber list starts filtered on "subscribed". Other statuses show when you pick them or "All statuses", and with a list chosen the status applies to the subscription on that list.
+
 ## [0.2.0] - 2026-10-21
 
 ### Changed
@@ -30,6 +36,7 @@ All notable changes to this package are documented here. The format follows [Kee
 - Drivers for Postfix (VERP bounces, DSN parsing) and Lettermint (signed webhooks).
 - A sign-up block for `j87nl/laravel-cms`.
 
+[0.2.1]: https://github.com/J87NL/laravel-mailing/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/J87NL/laravel-mailing/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/J87NL/laravel-mailing/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/J87NL/laravel-mailing/releases/tag/v0.1.0
