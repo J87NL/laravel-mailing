@@ -294,6 +294,10 @@ test('a mail API that answers with an HTTP status gets a cause that fits that st
         422,
         'mailing::campaigns.transport_errors.rejected',
     ],
+    'request timeout' => [
+        408,
+        'mailing::campaigns.transport_errors.timeout',
+    ],
     'rate limited' => [
         429,
         'mailing::campaigns.transport_errors.deferred',
