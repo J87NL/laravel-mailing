@@ -5,7 +5,7 @@
 @section('head')
     <meta name="robots" content="noindex">
     @if ($state === 'confirm')
-        <script src="{{ route('mailing.confirm.script') }}" defer></script>
+        <script src="{{ route('mailing.confirm.script', absolute: false) }}" defer></script>
     @endif
 @endsection
 

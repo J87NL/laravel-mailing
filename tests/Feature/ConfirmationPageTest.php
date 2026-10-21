@@ -27,7 +27,7 @@ function confirmationPageScriptSources(string $policy): string
 test('opening the confirmation link never confirms, but the page submits itself with a same-origin script', function (): void {
     $response = $this->get($this->url)
         ->assertOk()
-        ->assertSee(sprintf('<script src="%s" defer></script>', route('mailing.confirm.script')), false)
+        ->assertSee('<script src="/mailing/assets/confirm.js" defer></script>', false)
         ->assertSee(ConfirmationScriptController::FORM_ATTRIBUTE, false)
         ->assertSee(__('mailing::confirm.confirm.button'));
 
@@ -38,6 +38,17 @@ test('opening the confirmation link never confirms, but the page submits itself 
         ->and($policy)->toContain("object-src 'none'")
         ->and($policy)->toContain("frame-ancestors 'none'")
         ->and($response->headers->getCookies())->toBeEmpty();
+});
+
+test('the script is loaded by path, so a proxy that ends TLS never turns it into mixed content', function (): void {
+    URL::forceRootUrl('http://internal.example.org:8080');
+
+    $this->get(URL::temporarySignedRoute('mailing.confirm.show', now()->addDay(), [
+        'subscription' => $this->subscription->id,
+    ]))
+        ->assertOk()
+        ->assertSee('<script src="/mailing/assets/confirm.js" defer></script>', false)
+        ->assertDontSee('http://internal.example.org:8080/mailing/assets/confirm.js', false);
 });
 
 test('the auto-submit script is a same-origin file that only submits the marked form', function (): void {
@@ -52,7 +63,7 @@ test('the POST that the script sends confirms and shows the subscribed state wit
     $response = $this->post($this->url)
         ->assertOk()
         ->assertSee(__('mailing::confirm.confirmed.title'))
-        ->assertDontSee(route('mailing.confirm.script'));
+        ->assertDontSee('assets/confirm.js');
 
     expect($this->subscription->fresh()->status)->toBe(SubscriptionStatus::Subscribed)
         ->and(confirmationPageScriptSources((string) $response->headers->get('Content-Security-Policy')))->toBe("script-src 'none'");
@@ -91,14 +102,14 @@ test('without a policy from the host the confirmation page gets none either', fu
 test('expired and already confirmed links never load the script', function (): void {
     $this->get(str_replace('signature=', 'signature=0', $this->url))
         ->assertForbidden()
-        ->assertDontSee(route('mailing.confirm.script'));
+        ->assertDontSee('assets/confirm.js');
 
     $this->post($this->url)->assertOk();
 
     $this->get($this->url)
         ->assertOk()
         ->assertSee(__('mailing::confirm.confirmed.title'))
-        ->assertDontSee(route('mailing.confirm.script'));
+        ->assertDontSee('assets/confirm.js');
 
     $this->post($this->url)
         ->assertOk()
