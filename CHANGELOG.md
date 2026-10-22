@@ -4,6 +4,8 @@ All notable changes to this package are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-22
+
 ### Added
 
 - Campaign attachments: add PDF, JPG or PNG files in the composer (types, a 7 MB total and the private disk are configurable under `mailing.attachments`). They can only change while the campaign is a draft, and go along with every campaign mail and test mail.
@@ -73,6 +75,7 @@ All notable changes to this package are documented here. The format follows [Kee
 - Drivers for Postfix (VERP bounces, DSN parsing) and Lettermint (signed webhooks).
 - A sign-up block for `j87nl/laravel-cms`.
 
+[0.2.4]: https://github.com/J87NL/laravel-mailing/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/J87NL/laravel-mailing/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/J87NL/laravel-mailing/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/J87NL/laravel-mailing/compare/v0.2.0...v0.2.1
