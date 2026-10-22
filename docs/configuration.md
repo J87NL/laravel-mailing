@@ -373,7 +373,7 @@ See [Imports](imports.md).
         'jpg',
         'png',
     ],
-    'max_total_kilobytes' => 10240,
+    'max_total_kilobytes' => 7168,
     'warn_total_kilobytes' => 2048,
     'min_text_characters' => 200,
     'default_as_link' => false,

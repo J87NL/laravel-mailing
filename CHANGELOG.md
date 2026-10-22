@@ -6,7 +6,7 @@ All notable changes to this package are documented here. The format follows [Kee
 
 ### Added
 
-- Campaign attachments: add PDF, JPG or PNG files in the composer (types, a 10 MB total and the private disk are configurable under `mailing.attachments`). They can only change while the campaign is a draft, and go along with every campaign mail and test mail.
+- Campaign attachments: add PDF, JPG or PNG files in the composer (types, a 7 MB total and the private disk are configurable under `mailing.attachments`). They can only change while the campaign is a draft, and go along with every campaign mail and test mail.
 - Per attachment, "send as download link": the mail gets a Downloads block with a temporary signed URL (30 days) served by the package at `/mailing/attachments/{token}`, without session or cookie, also when the host adds `web` to the public middleware. Real attachments are the default.
 - The pre-flight check gets an `attachments` item that warns when the real attachments exceed 2 MB together, or when a mail with an attachment has less than 200 characters of text.
 - The pre-flight check turns red, and a test send is refused, when the file of an attachment is missing from the disk. When a file goes missing while sending, the campaign pauses and the send goes back to the queue with the path in its last response, instead of going out without the file or failing every send.

@@ -141,7 +141,7 @@ test('attachments are refused when their type is not allowed', function (string 
 test('attachments are refused when they exceed the total size, counting the ones already there', function (): void {
     $this->actingWithPermissions([MailingPermission::CampaignsEdit->value]);
     $campaign = makeCampaign($this->list);
-    $existing = attachFile($campaign, 'groot.pdf', 8 * 1024);
+    $existing = attachFile($campaign, 'groot.pdf', 5 * 1024);
 
     $this->put(route('mailing.campaigns.update', $campaign), composerPayload($campaign, [
         'attachments' => [
@@ -571,7 +571,7 @@ test('a save that finds the campaign no longer a draft under the lock stores no 
 
 test('the total size is checked again under the lock, so two saves at once cannot pass the limit', function (): void {
     $campaign = makeCampaign($this->list);
-    $existing = attachFile($campaign, 'groot.pdf', 8 * 1024);
+    $existing = attachFile($campaign, 'groot.pdf', 5 * 1024);
 
     expect(fn () => app(SaveCampaign::class)->handle($campaign->fresh(), composerPayload($campaign, [
         'attachments' => [

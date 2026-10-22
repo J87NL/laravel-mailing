@@ -40,7 +40,7 @@ class CampaignAttachments
 
     public function maxTotalBytes(): int
     {
-        return max(0, (int) config('mailing.attachments.max_total_kilobytes', 10240)) * 1024;
+        return max(0, (int) config('mailing.attachments.max_total_kilobytes', 7168)) * 1024;
     }
 
     public function warnTotalBytes(): int

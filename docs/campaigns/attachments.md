@@ -13,7 +13,7 @@ Unscheduling makes it a draft again.
     'disk' => env('MAILING_ATTACHMENTS_DISK', 'local'),
     'directory' => 'mailing/attachments',
     'extensions' => ['pdf', 'jpg', 'png'],
-    'max_total_kilobytes' => 10240,
+    'max_total_kilobytes' => 7168,
     'warn_total_kilobytes' => 2048,
     'min_text_characters' => 200,
     'default_as_link' => false,
@@ -28,7 +28,7 @@ Unscheduling makes it a draft again.
 - `extensions` lists the allowed types. Both the extension of the uploaded name and the type
   detected from the content must be in the list (`jpg` also allows `jpeg`), so a renamed web page
   or program is refused.
-- All attachments of a campaign together may not exceed `max_total_kilobytes` (10 MB). The files
+- All attachments of a campaign together may not exceed `max_total_kilobytes` (7 MB). The files
   already attached count, minus the ones removed in the same save.
 - The original name is kept for the recipient, cleaned of control characters and slashes, with
   the extension of the detected type. A real PNG named `plan.pdf` is stored as `plan.png`.
@@ -37,11 +37,11 @@ Unscheduling makes it a draft again.
 
 ### Upload limits of PHP and the web server
 
-The package limit only applies to what reaches PHP. For 10 MB of attachments in one save, raise:
+The package limit only applies to what reaches PHP. For 7 MB of attachments in one save, raise:
 
-- `upload_max_filesize` to at least the largest single file (10M), and `post_max_size` to the total
-  plus the rest of the form (for example 12M), in the `php.ini` of PHP-FPM;
-- the request body limit of the web server, such as `client_max_body_size 12m;` in nginx.
+- `upload_max_filesize` to at least the largest single file (7M), and `post_max_size` to the total
+  plus the rest of the form (for example 9M), in the `php.ini` of PHP-FPM;
+- the request body limit of the web server, such as `client_max_body_size 9m;` in nginx.
 
 Otherwise a large upload is cut off before validation and the composer shows a generic error, or
 the server answers 413.
@@ -125,7 +125,7 @@ between servers):
 ## Cost of the pre-flight spam check
 
 The spam score is measured on the real message, so the real attachments are part of the raw mail
-sent to rspamd. With 10 MB of attachments that is a 10 MB request each time the pre-flight runs
+sent to rspamd. With 7 MB of attachments that is a 7 MB request each time the pre-flight runs
 (at most once per 10 minutes per campaign version, and when scheduling). That is on purpose: the
 attachments are part of what spam filters judge.
 
