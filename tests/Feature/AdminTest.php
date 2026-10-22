@@ -238,7 +238,7 @@ test('the subscriber list shows subscribed addresses by default and others only 
             'klaas@example.org',
             'piet@example.org',
         ])
-        ->and($emails(['status' => '']))->toBe([
+        ->and($emails(['status' => 'all']))->toBe([
             'jan@example.org',
             'klaas@example.org',
             'piet@example.org',
@@ -399,4 +399,27 @@ test('lifting a suppression without a subscriber and erasing without a suppressi
             && $context['list_ids'] === [$list->id]
             && ! str_contains((string) json_encode($context), '@'))
         ->once();
+});
+
+test('campaigns, lists and subscribers open their detail page from the row', function (): void {
+    $list = makeList();
+    $subscription = makeSubscription($list);
+
+    $this->actingWithPermissions([
+        MailingPermission::Lists->value,
+        MailingPermission::Subscribers->value,
+    ]);
+
+    $listRow = $this->get(route('mailing.lists.index'), [
+        'X-Inertia' => 'true',
+    ])->json('props.lists');
+
+    $subscriberRow = $this->get(route('mailing.subscribers.index'), [
+        'X-Inertia' => 'true',
+    ])->json('props.subscribers');
+
+    expect($listRow['rowLinks'][0] ?? null)->toBe(route('mailing.lists.edit', $list))
+        ->and(collect($listRow['rowActions'][0])->pluck('key')->all())->not->toContain('edit')
+        ->and($subscriberRow['rowLinks'][0] ?? null)->toBe(route('mailing.subscribers.show', $subscription->subscriber_id))
+        ->and($subscriberRow['rowActions'][0] ?? [])->toBe([]);
 });

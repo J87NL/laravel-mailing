@@ -61,7 +61,6 @@ return [
         'provider' => 'Deze lijst verstuurt via een API-provider. Aflevering, bounces en klachten komen terug via de webhook. Of een mail in de inbox of in de spam belandt, meldt geen enkele verzendroute.',
     ],
     'actions' => [
-        'show' => 'Bekijken',
         'schedule' => 'Inplannen',
         'unschedule' => 'Terug naar concept',
         'pause' => 'Pauzeren',

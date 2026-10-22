@@ -34,7 +34,6 @@ return [
         'at' => 'When',
     ],
     'actions' => [
-        'show' => 'View',
         'export' => 'Export as CSV',
         'unsubscribe' => 'Unsubscribe',
         'unsubscribe_confirm' => 'Are you sure you want to unsubscribe this address from this list?',

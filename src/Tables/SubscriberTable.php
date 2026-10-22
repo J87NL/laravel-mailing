@@ -16,6 +16,8 @@ use TranquilTools\TableBuilder\TableBuilder;
 
 final class SubscriberTable extends AbstractTable
 {
+    private const string ALL_STATUSES = 'all';
+
     public function authorize(Request $request): bool
     {
         return (bool) $request->user()?->can(MailingPermission::Subscribers->value);
@@ -54,15 +56,18 @@ final class SubscriberTable extends AbstractTable
             )
             ->callbackFilter(
                 'status',
-                collect(SubscriptionStatus::cases())
-                    ->mapWithKeys(fn (SubscriptionStatus $status): array => [
-                        $status->value => $status->label(),
-                    ])
-                    ->all(),
-                fn (Builder $query, mixed $value): Builder => $query->whereHas('subscriptions', fn (Builder $subscriptions): Builder => $this->onSelectedList($subscriptions, $table)->where('status', (string) $value)),
+                [
+                    self::ALL_STATUSES => __('mailing::subscribers.filters.all_statuses'),
+                    ...collect(SubscriptionStatus::cases())
+                        ->mapWithKeys(fn (SubscriptionStatus $status): array => [
+                            $status->value => $status->label(),
+                        ])
+                        ->all(),
+                ],
+                fn (Builder $query, mixed $value): Builder => $this->withStatus($query, (string) $value, $table),
                 __('mailing::subscribers.fields.status'),
                 defaultValue: SubscriptionStatus::Subscribed->value,
-                noFilterOptionLabel: __('mailing::subscribers.filters.all_statuses'),
+                noFilterOption: false,
             )
             ->column('email', __('mailing::subscribers.fields.email'), sortable: true)
             ->column('name', __('mailing::subscribers.fields.name'), sortable: true)
@@ -72,13 +77,21 @@ final class SubscriberTable extends AbstractTable
                 label: __('mailing::subscribers.actions.export'),
                 filename: fn (): string => sprintf('subscribers-%s.csv', now()->format('Y-m-d')),
             )
+            ->rowLink(fn (Subscriber $subscriber): string => route('mailing.subscribers.show', $subscriber))
             ->paginate(50);
+    }
 
-        $table->rowAction(
-            __('mailing::subscribers.actions.show'),
-            url: fn (Subscriber $subscriber): string => route('mailing.subscribers.show', $subscriber),
-            key: 'show',
-        );
+    /**
+     * @param  Builder<Subscriber>  $query
+     * @return Builder<Subscriber>
+     */
+    private function withStatus(Builder $query, string $status, TableBuilder $table): Builder
+    {
+        if ($status === self::ALL_STATUSES) {
+            return $query;
+        }
+
+        return $query->whereHas('subscriptions', fn (Builder $subscriptions): Builder => $this->onSelectedList($subscriptions, $table)->where('status', $status));
     }
 
     /**

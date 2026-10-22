@@ -44,14 +44,10 @@ final class ListTable extends AbstractTable
             ->column('subscribed_count', __('mailing::lists.fields.subscribed'))
             ->column('pending_count', __('mailing::lists.fields.pending'))
             ->column('mailer', __('mailing::lists.fields.mailer'))
+            ->rowLink(fn (MailingList $list): string => route('mailing.lists.edit', $list))
             ->paginate(50);
 
         $table
-            ->rowAction(
-                __('mailing::common.edit'),
-                url: fn (MailingList $list): string => route('mailing.lists.edit', $list),
-                key: 'edit',
-            )
             ->rowAction(
                 __('mailing::lists.actions.transport'),
                 url: fn (MailingList $list): string => route('mailing.lists.transport.edit', $list),

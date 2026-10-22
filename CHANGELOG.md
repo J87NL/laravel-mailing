@@ -4,6 +4,16 @@ All notable changes to this package are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-10-22
+
+### Changed
+
+- Campaigns, lists and subscribers open their detail or edit page by clicking the row, instead of a separate "View" or "Edit" row action.
+
+### Fixed
+
+- Choosing "All statuses" in the subscriber filter jumped back to "Subscribed". It is now a real option of the filter.
+
 ## [0.2.4] - 2026-10-22
 
 ### Added
@@ -75,6 +85,7 @@ All notable changes to this package are documented here. The format follows [Kee
 - Drivers for Postfix (VERP bounces, DSN parsing) and Lettermint (signed webhooks).
 - A sign-up block for `j87nl/laravel-cms`.
 
+[0.2.5]: https://github.com/J87NL/laravel-mailing/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/J87NL/laravel-mailing/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/J87NL/laravel-mailing/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/J87NL/laravel-mailing/compare/v0.2.1...v0.2.2

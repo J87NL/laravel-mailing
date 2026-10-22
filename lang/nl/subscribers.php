@@ -34,7 +34,6 @@ return [
         'at' => 'Moment',
     ],
     'actions' => [
-        'show' => 'Bekijken',
         'export' => 'Exporteren als CSV',
         'unsubscribe' => 'Afmelden',
         'unsubscribe_confirm' => 'Weet je zeker dat je dit adres van deze lijst wilt afmelden?',

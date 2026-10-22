@@ -42,12 +42,7 @@ final class CampaignTable extends AbstractTable
             ->column('status', __('mailing::campaigns.fields.status'), as: fn (mixed $value, Campaign $campaign): string => $campaign->status->label())
             ->column('sends_count', __('mailing::campaigns.fields.recipients'))
             ->column('scheduled_at', __('mailing::campaigns.fields.scheduled_at'), as: fn (mixed $value, Campaign $campaign): string => MailingTime::format($campaign->scheduled_at, 'D MMM YYYY HH:mm') ?? '')
+            ->rowLink(fn (Campaign $campaign): string => route('mailing.campaigns.show', $campaign))
             ->paginate(25);
-
-        $table->rowAction(
-            __('mailing::campaigns.actions.show'),
-            url: fn (Campaign $campaign): string => route('mailing.campaigns.show', $campaign),
-            key: 'show',
-        );
     }
 }

@@ -61,7 +61,6 @@ return [
         'provider' => 'This list sends through an API provider. Deliveries, bounces and complaints come back through the webhook. No transport reports inbox versus spam folder.',
     ],
     'actions' => [
-        'show' => 'View',
         'schedule' => 'Schedule',
         'unschedule' => 'Back to draft',
         'pause' => 'Pause',
