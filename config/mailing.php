@@ -169,6 +169,22 @@ return [
         'confirmations_per_minute' => 20,
     ],
 
+    'attachments' => [
+        'disk' => env('MAILING_ATTACHMENTS_DISK', 'local'),
+        'directory' => 'mailing/attachments',
+        'extensions' => [
+            'pdf',
+            'jpg',
+            'png',
+        ],
+        'max_total_kilobytes' => 7168,
+        'warn_total_kilobytes' => 2048,
+        'min_text_characters' => 200,
+        'default_as_link' => false,
+        'link_valid_days' => 30,
+        'retention_days' => 30,
+    ],
+
     'retention' => [
         'unconfirmed_days' => 30,
         'unsubscribed_years' => 2,

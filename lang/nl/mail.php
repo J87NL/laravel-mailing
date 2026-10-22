@@ -19,5 +19,7 @@ return [
         'sender' => 'Verstuurd door :sender.',
         'reason' => 'Je ontvangt deze mail omdat je je hebt aangemeld voor :list.',
         'unsubscribe' => 'Afmelden',
+        'downloads' => 'Downloads',
+        'downloads_until' => 'Deze downloadlinks werken tot :date.',
     ],
 ];

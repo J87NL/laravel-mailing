@@ -83,6 +83,25 @@ within that time are orange.
 Red when the visible text of the body is shorter than 20 characters, or the plain-text part is
 empty.
 
+### Attachments
+
+Only shown when the campaign has [attachments](attachments.md).
+
+- **Red** when the file of an attachment is missing from the disk, with the names. This blocks
+  scheduling, and the spam score is then a warning that it was not measured.
+
+- **Warning** when the real attachments (not the download links) are together larger than
+  `mailing.attachments.warn_total_kilobytes` (2 MB). Large mails hurt delivery; send large files as
+  a download link.
+- **Warning** when the campaign has a real attachment and the visible text of the body is shorter
+  than `mailing.attachments.min_text_characters` (200). A mail that is mostly an attachment with a
+  line like "see the attachment" looks like spam to filters.
+- When both warnings apply, the item shows both messages.
+- **Green** otherwise, with the total size of the real attachments.
+
+Adding, removing or switching an attachment touches the campaign, so the cached result is
+refreshed.
+
 ## Results
 
 `run(Campaign $campaign): array` and `cached(Campaign $campaign): array` return a list of
@@ -103,7 +122,8 @@ final readonly class PreflightItem
 }
 ```
 
-The keys are `spf`, `dkim`, `dmarc`, `alignment`, `blocklists`, `spam_score`, `links` and `text`.
+The keys are `spf`, `dkim`, `dmarc`, `alignment`, `blocklists`, `spam_score`, `links`, `text` and,
+when the campaign has attachments, `attachments`.
 `PreflightCheck::blocks($items)` returns `true` when any item is red. The labels and messages come
 from `mailing::preflight`.
 

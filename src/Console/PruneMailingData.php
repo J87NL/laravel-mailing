@@ -4,13 +4,20 @@ declare(strict_types=1);
 
 namespace J87NL\Mailing\Console;
 
+use Carbon\CarbonInterface;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use J87NL\Mailing\Attachments\CampaignAttachments;
+use J87NL\Mailing\Enums\CampaignStatus;
 use J87NL\Mailing\Enums\ConsentAction;
+use J87NL\Mailing\Enums\SendStatus;
 use J87NL\Mailing\Enums\SubscriptionStatus;
 use J87NL\Mailing\Models\BounceEvent;
+use J87NL\Mailing\Models\Campaign;
+use J87NL\Mailing\Models\CampaignAttachment;
 use J87NL\Mailing\Models\ConsentRecord;
 use J87NL\Mailing\Models\Send;
 use J87NL\Mailing\Models\Subscriber;
@@ -19,11 +26,16 @@ use J87NL\Mailing\Models\WebhookEvent;
 
 class PruneMailingData extends Command
 {
+    private const array FINISHED = [
+        CampaignStatus::Sent,
+        CampaignStatus::Cancelled,
+    ];
+
     protected $signature = 'mailing:prune';
 
-    protected $description = 'Delete unconfirmed sign-ups and expired consent records of unsubscribed addresses';
+    protected $description = 'Delete unconfirmed sign-ups and expired consent records of unsubscribed addresses, and attachments of finished campaigns';
 
-    public function handle(): int
+    public function handle(CampaignAttachments $campaignAttachments): int
     {
         $unconfirmed = $this->pruneUnconfirmed(
             Subscription::query()
@@ -55,12 +67,25 @@ class PruneMailingData extends Command
             ->where('created_at', '<', $sendCutoff)
             ->delete();
 
+        $attachments = 0;
+        $attachmentCutoff = now()->subDays($campaignAttachments->retentionDays());
+
+        Campaign::query()
+            ->whereIn('status', self::FINISHED)
+            ->where('finished_at', '<', $attachmentCutoff)
+            ->whereHas('attachments')
+            ->chunkById(50, function (Collection $campaigns) use (&$attachments, $attachmentCutoff): void {
+                foreach ($campaigns as $campaign) {
+                    $attachments += DB::transaction(fn (): int => $this->pruneAttachments($campaign->id, $attachmentCutoff));
+                }
+            });
+
         $subscribers = Subscriber::query()
             ->whereDoesntHave('subscriptions')
             ->where('updated_at', '<', now()->subDays((int) config('mailing.retention.unconfirmed_days', 30)))
             ->delete();
 
-        $this->info(sprintf('Pruned or ended %d unconfirmed and pruned %d ended subscriptions, %d subscribers and %d send records.', $unconfirmed, $ended, $subscribers, $sends));
+        $this->info(sprintf('Pruned or ended %d unconfirmed and pruned %d ended subscriptions, %d subscribers, %d send records and %d attachments.', $unconfirmed, $ended, $subscribers, $sends, $attachments));
 
         return self::SUCCESS;
     }
@@ -140,6 +165,49 @@ class PruneMailingData extends Command
         });
 
         return $count;
+    }
+
+    private function pruneAttachments(int $campaignId, CarbonInterface $cutoff): int
+    {
+        $campaign = Campaign::query()
+            ->whereKey($campaignId)
+            ->lockForUpdate()
+            ->first();
+
+        if (is_null($campaign) || ! in_array($campaign->status, self::FINISHED, true) || is_null($campaign->finished_at) || $campaign->finished_at->gte($cutoff)) {
+            return 0;
+        }
+
+        $hasOpenSends = $campaign->sends()
+            ->whereIn('status', [
+                SendStatus::Queued,
+                SendStatus::Deferred,
+                SendStatus::Sending,
+            ])
+            ->exists();
+
+        if ($hasOpenSends) {
+            return 0;
+        }
+
+        $attachments = $campaign->attachments()
+            ->get();
+
+        Model::withoutTouchingOn([Campaign::class], fn () => Campaign::withoutTimestamps(fn () => $this->deleteAttachments($campaign, $attachments)));
+
+        return $attachments->count();
+    }
+
+    /**
+     * @param  Collection<int, CampaignAttachment>  $attachments
+     */
+    private function deleteAttachments(Campaign $campaign, Collection $attachments): void
+    {
+        $attachments->each(fn (CampaignAttachment $attachment) => $attachment->delete());
+
+        $campaign->forceFill([
+            'attachments_pruned_at' => now(),
+        ])->save();
     }
 
     private function deleteWithRecords(Subscription $subscription): void

@@ -54,6 +54,9 @@ class MailingServiceProvider extends ServiceProvider
         RateLimiter::for('mailing-unsubscribe', fn (Request $request): Limit => Limit::perMinute(10)
             ->by(sprintf('mailing-unsubscribe:%s', sha1((string) $request->route('token')))));
 
+        RateLimiter::for('mailing-attachments', fn (Request $request): Limit => Limit::perMinute(60)
+            ->by(sprintf('mailing-attachments:%s', (string) $request->ip())));
+
         Gate::define(MailingNavigation::ABILITY, fn (Authorizable $user): bool => $this->app
             ->make(MailingNavigation::class)
             ->allows($user));

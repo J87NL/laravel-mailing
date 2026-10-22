@@ -13,6 +13,10 @@ the `mailing.campaigns.edit` permission. Scheduling and test sends also need
 | `preheader`  | nullable, up to 150 characters      | The short text mail clients show next to the subject            |
 | `body_html`  | required, up to 200000 characters   | The content, written in the rich text editor                    |
 | `body_text`  | nullable, up to 100000 characters   | The plain-text part                                             |
+| `attachments` | nullable, files                    | New [attachments](attachments.md), within the type and total-size limits |
+| `remove_attachments` | nullable, ids of current attachments | Attachments to delete                                  |
+| `new_attachments_as_link` | nullable, boolean           | Send the new files as a download link                           |
+| `attachment_links` | nullable, ids of current attachments | The current attachments that go as a download link (only shown when there are any) |
 
 The body editor is `mailing.rich_text.editor` (default `hugerte`) with the options from the config
 key in `mailing.rich_text.options_config_key`.
@@ -52,6 +56,8 @@ Campaign mails use `mailing::mail.campaign` (HTML) and `mailing::mail.campaign-t
 - The content, with inline styles added to `p`, `h2` to `h4`, `a`, `ul`, `ol`, `li`, `blockquote`,
   `table`, `th` and `td` (`J87NL\Mailing\Html\EmailStyler`). An element that already has a `style`
   attribute is left alone.
+- A "Downloads" block with the signed links of the [attachments](attachments.md) sent as a
+  download link, and the date they stop working.
 - A footer with the sender, why the recipient gets the mail, and the unsubscribe link.
 
 The From address and Reply-To are those of the list. The mail carries the
@@ -62,7 +68,8 @@ Publish the views with `--tag=mailing-views` to change the layout.
 ## The campaign page
 
 The campaign page shows the status, the list, the number of recipients, the transport, the
-schedule and progress, and the counts per [send status](sending.md#send-statuses).
+schedule and progress, the counts per [send status](sending.md#send-statuses), and the attachments
+with their size and whether they go as an attachment or a download link.
 
 While the campaign is a draft it also shows:
 
@@ -82,7 +89,7 @@ page only shows the test form for drafts, and the test route refuses any other c
 - Each admin can send at most ten test mails per hour.
 - The mail is sent through the list mailer, at once, not through the queue.
 
-A test send is the real message: the same layout, the list headers, the footer with an unsubscribe
+A test send is the real message: the same layout, the same attachments and download links, the list headers, the footer with an unsubscribe
 link and the driver marking, such as the VERP Return-Path of the Postfix driver. The unsubscribe
 link uses the placeholder token `preview`, which unsubscribes no one: opening it gives a 404.
 

@@ -32,6 +32,13 @@ export type MailingAction = {
     variant: 'default' | 'destructive';
 };
 
+export type MailingAttachment = {
+    id: number;
+    name: string;
+    size: string;
+    delivery: string;
+};
+
 export type MailingPreflightItem = {
     key: string;
     status: 'ok' | 'warning' | 'error';
@@ -47,6 +54,7 @@ export type MailingCampaign = {
     scheduledAt: string | null;
     startedAt: string | null;
     finishedAt: string | null;
+    attachmentsPrunedAt: string | null;
     recipients: number;
     estimatedFinish: string | null;
     transport: string;

@@ -36,6 +36,14 @@ Postfix queue ids of your sends are not kept that long: `mailing:read-postfix-lo
 Postfix logs `removed`, or `mailing.postfix_log.queue_ttl_hours` (48) after its last `deferred` line. See
 [Postfix delivery log](delivery/postfix.md#privacy).
 
+## Campaign attachments
+
+The attachments of a campaign that is `sent` or `cancelled` are deleted, with their files, once the
+campaign finished more than `mailing.attachments.retention_days` (30) days ago. That period is
+never shorter than `mailing.attachments.link_valid_days`, so download links keep working until they
+expire. Deleting a draft deletes its attachments at once. See
+[Attachments](campaigns/attachments.md#retention).
+
 ## Subscribers
 
 A subscriber without any subscription that has not changed for `unconfirmed_days` (30) days is

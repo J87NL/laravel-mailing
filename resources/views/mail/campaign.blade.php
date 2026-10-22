@@ -22,6 +22,17 @@
                             {!! $bodyHtml !!}
                         </td>
                     </tr>
+                    @if ($downloads !== [])
+                        <tr>
+                            <td style="padding:0 32px 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#1f2937;">
+                                <p style="margin:0 0 8px;font-weight:bold;">{{ __('mailing::mail.campaign.downloads') }}</p>
+                                @foreach ($downloads as $download)
+                                    <p style="margin:0 0 4px;"><a href="{{ $download['url'] }}" style="color:#1d4ed8;text-decoration:underline;">{{ $download['name'] }}</a> ({{ $download['size'] }})</p>
+                                @endforeach
+                                <p style="margin:8px 0 0;font-size:13px;color:#6b7280;">{{ __('mailing::mail.campaign.downloads_until', ['date' => $downloadsUntil]) }}</p>
+                            </td>
+                        </tr>
+                    @endif
                 </table>
                 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
                     <tr>

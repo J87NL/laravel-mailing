@@ -12,6 +12,7 @@ return [
         'spam_score' => 'Spam score',
         'links' => 'Links',
         'text' => 'Text',
+        'attachments' => 'Attachments',
     ],
     'messages' => [
         'spf' => [
@@ -42,6 +43,7 @@ return [
         ],
         'spam_score' => [
             'unavailable' => 'No spam filter available; the spam score was not checked.',
+            'skipped' => 'Not checked: an attachment is missing.',
             'high' => 'Spam score :score is too high.',
             'ok' => 'Spam score :score.',
         ],
@@ -53,6 +55,12 @@ return [
         'text' => [
             'missing' => 'The mail has too little text or no plain-text part.',
             'ok' => 'Text and plain-text part present.',
+        ],
+        'attachments' => [
+            'missing' => 'These attachments are missing from the disk: :names. Remove them and add them again.',
+            'large' => 'The attachments add up to :size; above :max they hurt delivery. Send large files as a download link instead.',
+            'mostly_attachment' => 'The mail is mostly an attachment: the text is shorter than :min characters. Spam filters distrust that; put the content in the mail itself as well.',
+            'ok' => 'Attachments add up to :size.',
         ],
     ],
 ];

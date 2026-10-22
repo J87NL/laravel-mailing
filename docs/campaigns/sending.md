@@ -125,6 +125,8 @@ With your own Postfix, a send stays `handed_over` unless the package reads Postf
 
 "Retry failed sends" puts every `failed` send that was never handed over back to `queued`. It is
 available for `sending`, `paused` and `sent` campaigns. A `sent` campaign becomes `sending` again.
+Once `mailing:prune` has deleted the [attachments](attachments.md#retention) of a campaign, retrying
+is refused, because the mails would go out without them.
 
 Interrupted and stale sends are only retried this way, by an admin, because they may already have
 been delivered.

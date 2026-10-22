@@ -16,6 +16,7 @@
     - [CMS sign-up block](public/cms-block.md)
 - Campaigns
     - [Composing campaigns](campaigns/composing.md)
+    - [Attachments](campaigns/attachments.md)
     - [Pre-flight checks](campaigns/preflight.md)
     - [Sending](campaigns/sending.md)
 - Delivery
