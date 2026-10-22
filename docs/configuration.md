@@ -321,7 +321,7 @@ See [Pre-flight checks](campaigns/preflight.md).
 | `per_address_per_hour` | Sign-up requests per email address per hour.                                        |
 | `per_address_per_day`  | Sign-up requests per email address per 24 hours.                                    |
 | `global_per_hour`      | Sign-up requests across the whole site per hour.                                    |
-| `min_seconds`          | A form submitted faster than this after rendering is treated as a bot.              |
+| `min_seconds`          | A form submitted faster than this after rendering is treated as a bot. A form shown again after a `422` may be posted at once. |
 | `max_seconds`          | A form token older than this is expired (default 48 hours).                         |
 | `success_query`        | The query parameter that marks a successful sign-up in the redirect URL.            |
 | `privacy_url`          | The privacy statement the sign-up form links to: a local path starting with one `/` (query and fragment allowed) or an `http`/`https` URL with a host, trimmed. Anything else, or no value, shows no link. See [Sign-up](public/signup.md). |
