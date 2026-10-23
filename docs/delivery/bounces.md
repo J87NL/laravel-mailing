@@ -57,7 +57,9 @@ For every message the command:
 
 A reader that implements `BatchArchivingMailboxReader` archives in batches instead: the command
 collects the messages and calls `archiveMany()` once per 100 messages and once for the rest, so an
-IMAP reader can move them with one command. See [Contracts](../contracts.md#batcharchivingmailboxreader).
+IMAP reader can move them with one command. The messages are then archived after their reports were
+applied; when a run stops in between, they are read again next time and not applied twice. See
+[Contracts](../contracts.md#batcharchivingmailboxreader).
 
 Per recipient in the report:
 
