@@ -17,6 +17,10 @@ return [
 
     'navigation_config_key' => 'j87nl.navigation',
 
+    'section_navigation' => true,
+
+    'host_sections' => [],
+
     'toast_flash_key' => 'toast',
 
     'timezone' => env('MAILING_TIMEZONE', 'Europe/Amsterdam'),

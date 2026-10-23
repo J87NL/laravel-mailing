@@ -173,7 +173,26 @@ type MailingNavigationItem = {
 `title` is already translated and `href` is a relative URL. The prop only holds the sections the
 user may open, and it is empty without a user. With no items the submenu is not rendered. Your
 own sidebar shows the single `mailing` menu item, see
-[Permissions and navigation](permissions.md#navigation).
+[Permissions and navigation](permissions.md#navigation). The prop is also empty with
+`mailing.section_navigation` set to `false` and on the pages of
+[host sections](permissions.md#sections-in-the-host-menu).
+
+### Padding inside your own layout
+
+`MailingLayout` adds `p-4` around the page. When you render pages inside a layout that already
+pads its content, such as a settings layout, provide `false` under the key `pagePadding` in that
+layout and the pages drop their own padding:
+
+```vue
+<script setup lang="ts">
+import { provide } from 'vue';
+
+provide('pagePadding', false);
+</script>
+```
+
+Without a provider the pages keep their padding. `@mailing/composables/usePagePadding` exports the
+key as `PAGE_PADDING`.
 
 ## Campaign page polling
 

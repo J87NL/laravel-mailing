@@ -67,6 +67,32 @@ class MailingNavigation
         ];
     }
 
+    /**
+     * @return list<array{key: string, label: string, route: string, active: list<string>, permission: MailingPermission}>
+     */
+    public function hostSections(): array
+    {
+        $keys = $this->hostSectionKeys();
+
+        return array_values(array_filter(
+            $this->sections(),
+            fn (array $section): bool => in_array($section['key'], $keys, true),
+        ));
+    }
+
+    /**
+     * @return list<array{key: string, label: string, route: string, active: list<string>, permission: MailingPermission}>
+     */
+    public function moduleSections(): array
+    {
+        $keys = $this->hostSectionKeys();
+
+        return array_values(array_filter(
+            $this->sections(),
+            fn (array $section): bool => ! in_array($section['key'], $keys, true),
+        ));
+    }
+
     public function allows(Authorizable $user): bool
     {
         return ! is_null($this->firstUrlFor($user));
@@ -74,7 +100,7 @@ class MailingNavigation
 
     public function firstUrlFor(Authorizable $user): ?string
     {
-        foreach ($this->sections() as $section) {
+        foreach ($this->moduleSections() as $section) {
             if ($user->can($section['permission']->value)) {
                 return route($section['route']);
             }
@@ -88,9 +114,13 @@ class MailingNavigation
      */
     public function itemsFor(Authorizable $user, Request $request): array
     {
+        if (! $this->showsSectionNavigation($request)) {
+            return [];
+        }
+
         $items = [];
 
-        foreach ($this->sections() as $section) {
+        foreach ($this->moduleSections() as $section) {
             if (! $user->can($section['permission']->value)) {
                 continue;
             }
@@ -104,5 +134,70 @@ class MailingNavigation
         }
 
         return $items;
+    }
+
+    /**
+     * @return array{key: string, label: string, route: string, icon: string, permission: string, active: string|list<string>, order: int}
+     */
+    public function menuItem(): array
+    {
+        return [
+            'key' => 'mailing',
+            'label' => 'mailing::navigation.mailing',
+            'route' => 'mailing.home',
+            'icon' => 'Mail',
+            'permission' => self::ABILITY,
+            'active' => $this->menuItemActivePatterns(),
+            'order' => 200,
+        ];
+    }
+
+    /**
+     * @return string|list<string>
+     */
+    private function menuItemActivePatterns(): string|array
+    {
+        if ($this->hostSectionKeys() === []) {
+            return 'mailing.*';
+        }
+
+        $patterns = [
+            'mailing.home',
+        ];
+
+        foreach ($this->moduleSections() as $section) {
+            array_push($patterns, ...$section['active']);
+        }
+
+        return $patterns;
+    }
+
+    private function showsSectionNavigation(Request $request): bool
+    {
+        if (! config('mailing.section_navigation', true)) {
+            return false;
+        }
+
+        foreach ($this->hostSections() as $section) {
+            if ($request->routeIs(...$section['active'])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function hostSectionKeys(): array
+    {
+        $configured = config('mailing.host_sections', []);
+
+        if (! is_array($configured)) {
+            return [];
+        }
+
+        return array_values(array_filter($configured, is_string(...)));
     }
 }

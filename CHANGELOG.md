@@ -4,6 +4,13 @@ All notable changes to this package are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- `mailing.host_sections`: sections an application places in its own menu, for example a settings menu. They leave the module submenu, their pages show no submenu, and `mailing.home`, the `mailing.access` ability and the `active` patterns of the `mailing` menu item only count the other sections. Routes, URLs and permissions stay the same.
+- `MailingNavigation::hostSections()` and `moduleSections()` expose the sections (key, label, route, route patterns and permission) for a host menu.
+- `mailing.section_navigation`: `false` hides the module submenu on every page.
+- A layout that provides `pagePadding` as `false` drops the `p-4` padding of `MailingLayout`, for pages rendered inside a host layout that pads its content itself. Without a provider nothing changes.
+
 ## [0.2.5] - 2026-10-22
 
 ### Changed

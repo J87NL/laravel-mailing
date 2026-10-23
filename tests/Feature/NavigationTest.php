@@ -102,3 +102,119 @@ test('the lists section stays marked on the transport page of a list', function 
         'lists',
     ]);
 });
+
+test('a host can hide the submenu on every page', function (): void {
+    config()->set('mailing.section_navigation', false);
+
+    $this->actingWithPermissions([
+        MailingPermission::CampaignsEdit->value,
+        MailingPermission::Lists->value,
+    ]);
+
+    $this->get(route('mailing.campaigns.index'), [
+        'X-Inertia' => 'true',
+    ])
+        ->assertOk()
+        ->assertJsonPath('props.mailingNavigation', []);
+
+    $this->get(route('mailing.home'))->assertRedirect(route('mailing.campaigns.index'));
+});
+
+test('sections the host places in its own menu leave the submenu and hide it on their pages', function (): void {
+    config()->set('mailing.host_sections', [
+        'lists',
+        'suppressions',
+    ]);
+
+    $this->actingWithPermissions([
+        MailingPermission::CampaignsEdit->value,
+        MailingPermission::Lists->value,
+        MailingPermission::Subscribers->value,
+    ]);
+    $list = makeList();
+
+    $navigation = $this->get(route('mailing.campaigns.index'), [
+        'X-Inertia' => 'true',
+    ])
+        ->assertOk()
+        ->json('props.mailingNavigation');
+
+    expect(collect($navigation)->pluck('key')->all())->toBe([
+        'campaigns',
+        'subscribers',
+        'imports',
+    ]);
+
+    foreach ([route('mailing.lists.index'), route('mailing.lists.edit', $list), route('mailing.suppressions.index')] as $url) {
+        $this->get($url, [
+            'X-Inertia' => 'true',
+        ])
+            ->assertOk()
+            ->assertJsonPath('props.mailingNavigation', []);
+    }
+});
+
+test('a user who may only open host sections gets no module menu item but still opens those pages', function (): void {
+    config()->set('mailing.host_sections', [
+        'lists',
+        'suppressions',
+    ]);
+
+    $this->actingWithPermissions([
+        MailingPermission::Lists->value,
+    ]);
+
+    expect(Gate::allows(MailingNavigation::ABILITY))->toBeFalse();
+
+    $this->get(route('mailing.home'))->assertForbidden();
+    $this->get(route('mailing.lists.index'), [
+        'X-Inertia' => 'true',
+    ])->assertOk();
+});
+
+test('the module menu item is not marked on the pages of host sections', function (): void {
+    config()->set('mailing.host_sections', [
+        'lists',
+        'suppressions',
+    ]);
+
+    expect(app(MailingNavigation::class)->menuItem()['active'])->toBe([
+        'mailing.home',
+        'mailing.campaigns.*',
+        'mailing.subscribers.*',
+        'mailing.subscriptions.*',
+        'mailing.imports.*',
+    ]);
+});
+
+test('the host sections expose their name, route and permission for a host menu', function (): void {
+    config()->set('mailing.host_sections', [
+        'suppressions',
+        'lists',
+        'unknown',
+    ]);
+
+    $sections = collect(app(MailingNavigation::class)->hostSections())
+        ->map(fn (array $section): array => [
+            $section['key'],
+            $section['label'],
+            $section['route'],
+            $section['permission']->value,
+        ])
+        ->all();
+
+    expect($sections)->toBe([
+        [
+            'lists',
+            'mailing::navigation.lists',
+            'mailing.lists.index',
+            MailingPermission::Lists->value,
+        ],
+        [
+            'suppressions',
+            'mailing::navigation.suppressions',
+            'mailing.suppressions.index',
+            MailingPermission::Subscribers->value,
+        ],
+    ]);
+});

@@ -13,6 +13,8 @@ This creates `config/mailing.php`. Every key below shows its default.
 ```php
 'permissions_config_key' => 'j87nl.permissions',
 'navigation_config_key' => 'j87nl.navigation',
+'section_navigation' => true,
+'host_sections' => [],
 'toast_flash_key' => 'toast',
 ```
 
@@ -20,6 +22,8 @@ This creates `config/mailing.php`. Every key below shows its default.
 | ------------------------ | ------------------------------------------------------------------------------------------------- |
 | `permissions_config_key` | The config key the package pushes its permission names into. See [Permissions and navigation](permissions.md). |
 | `navigation_config_key`  | The config key the package pushes its `mailing` menu item into. See [Permissions and navigation](permissions.md#navigation). |
+| `section_navigation`     | `false` hides the module submenu on every page. See [Sections in the host menu](permissions.md#sections-in-the-host-menu). |
+| `host_sections`          | Keys of the sections your application shows in its own menu, for example `['lists', 'suppressions']`. They leave the submenu, and their pages show no submenu. See [Sections in the host menu](permissions.md#sections-in-the-host-menu). |
 | `toast_flash_key`        | The Inertia flash key for success messages. The value is `['type' => 'success', 'message' => '...']`. |
 
 ## Timezone
