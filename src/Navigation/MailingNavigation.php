@@ -6,6 +6,7 @@ namespace J87NL\Mailing\Navigation;
 
 use Illuminate\Contracts\Auth\Access\Authorizable;
 use Illuminate\Http\Request;
+use InvalidArgumentException;
 use J87NL\Mailing\MailingPermission;
 
 class MailingNavigation
@@ -198,6 +199,13 @@ class MailingNavigation
             return [];
         }
 
-        return array_values(array_filter($configured, is_string(...)));
+        $known = array_column($this->sections(), 'key');
+        $unknown = array_values(array_diff($configured, $known));
+
+        if ($unknown !== []) {
+            throw new InvalidArgumentException(sprintf('Unknown mailing.host_sections: %s. Known sections: %s.', implode(', ', $unknown), implode(', ', $known)));
+        }
+
+        return array_values(array_intersect($known, $configured));
     }
 }

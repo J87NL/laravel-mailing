@@ -125,6 +125,12 @@ For those sections:
   `mailing.home` and the patterns of the other sections, so it is not marked on the pages of the
   host sections.
 - Their routes, URLs and permissions do not change.
+- An unknown key throws an `InvalidArgumentException` when the package registers its menu item, so a
+  typo does not go unnoticed.
+
+The `active` patterns are only computed for the item the package pushes. An application that
+defines its own `mailing` item in `mailing.navigation_config_key` keeps its own `active` and must
+leave the host sections out of it itself.
 
 `MailingNavigation::hostSections()` returns those sections with the same shape as `sections()`, so
 your menu can use their name, route, permission and route patterns:

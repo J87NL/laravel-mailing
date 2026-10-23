@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Request;
+use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
 use J87NL\Mailing\MailingPermission;
 use J87NL\Mailing\Navigation\MailingNavigation;
 
@@ -120,7 +123,7 @@ test('a host can hide the submenu on every page', function (): void {
     $this->get(route('mailing.home'))->assertRedirect(route('mailing.campaigns.index'));
 });
 
-test('sections the host places in its own menu leave the submenu and hide it on their pages', function (): void {
+test('sections the host places in its own menu leave the submenu', function (): void {
     config()->set('mailing.host_sections', [
         'lists',
         'suppressions',
@@ -131,7 +134,6 @@ test('sections the host places in its own menu leave the submenu and hide it on 
         MailingPermission::Lists->value,
         MailingPermission::Subscribers->value,
     ]);
-    $list = makeList();
 
     $navigation = $this->get(route('mailing.campaigns.index'), [
         'X-Inertia' => 'true',
@@ -144,15 +146,31 @@ test('sections the host places in its own menu leave the submenu and hide it on 
         'subscribers',
         'imports',
     ]);
-
-    foreach ([route('mailing.lists.index'), route('mailing.lists.edit', $list), route('mailing.suppressions.index')] as $url) {
-        $this->get($url, [
-            'X-Inertia' => 'true',
-        ])
-            ->assertOk()
-            ->assertJsonPath('props.mailingNavigation', []);
-    }
 });
+
+test('the pages of host sections show no submenu', function (string $route): void {
+    config()->set('mailing.host_sections', [
+        'lists',
+        'suppressions',
+    ]);
+
+    $this->actingWithPermissions([
+        MailingPermission::CampaignsEdit->value,
+        MailingPermission::Lists->value,
+        MailingPermission::Subscribers->value,
+    ]);
+    $list = makeList();
+
+    $this->get(route($route, $route === 'mailing.lists.edit' ? $list : []), [
+        'X-Inertia' => 'true',
+    ])
+        ->assertOk()
+        ->assertJsonPath('props.mailingNavigation', []);
+})->with([
+    'mailing.lists.index',
+    'mailing.lists.edit',
+    'mailing.suppressions.index',
+]);
 
 test('a user who may only open host sections gets no module menu item but still opens those pages', function (): void {
     config()->set('mailing.host_sections', [
@@ -172,49 +190,85 @@ test('a user who may only open host sections gets no module menu item but still 
     ])->assertOk();
 });
 
-test('the module menu item is not marked on the pages of host sections', function (): void {
+test('the module menu item is marked on the module pages and not on the pages of host sections', function (string $route, bool $marked): void {
     config()->set('mailing.host_sections', [
         'lists',
         'suppressions',
     ]);
 
-    expect(app(MailingNavigation::class)->menuItem()['active'])->toBe([
-        'mailing.home',
-        'mailing.campaigns.*',
-        'mailing.subscribers.*',
-        'mailing.subscriptions.*',
-        'mailing.imports.*',
-    ]);
-});
+    $request = Request::create(route($route));
+    $request->setRouteResolver(fn (): RoutingRoute => Route::getRoutes()->match($request));
 
-test('the host sections expose their name, route and permission for a host menu', function (): void {
+    expect($request->routeIs(...(array) app(MailingNavigation::class)->menuItem()['active']))->toBe($marked);
+})->with([
+    'campaigns' => [
+        'mailing.campaigns.index',
+        true,
+    ],
+    'subscribers' => [
+        'mailing.subscribers.index',
+        true,
+    ],
+    'imports' => [
+        'mailing.imports.index',
+        true,
+    ],
+    'lists' => [
+        'mailing.lists.index',
+        false,
+    ],
+    'new list' => [
+        'mailing.lists.create',
+        false,
+    ],
+    'suppressions' => [
+        'mailing.suppressions.index',
+        false,
+    ],
+]);
+
+test('a host menu item built from a host section opens with its permission and is refused without it', function (string $key): void {
     config()->set('mailing.host_sections', [
-        'suppressions',
+        $key,
+    ]);
+
+    $section = app(MailingNavigation::class)->hostSections()[0];
+
+    $this->actingWithPermissions([
+        MailingPermission::Settings->value,
+    ]);
+
+    $this->get(route($section['route']), [
+        'X-Inertia' => 'true',
+    ])->assertForbidden();
+
+    $this->actingWithPermissions([
+        $section['permission']->value,
+    ]);
+
+    $request = Request::create(route($section['route']));
+    $request->setRouteResolver(fn (): RoutingRoute => Route::getRoutes()->match($request));
+
+    expect($section['key'])->toBe($key)
+        ->and($request->routeIs(...$section['active']))->toBeTrue();
+
+    $this->get(route($section['route']), [
+        'X-Inertia' => 'true',
+    ])->assertOk();
+})->with([
+    'lists',
+    'subscribers',
+    'suppressions',
+    'imports',
+    'campaigns',
+]);
+
+test('an unknown host section is refused instead of silently ignored', function (): void {
+    config()->set('mailing.host_sections', [
         'lists',
-        'unknown',
+        'suppresions',
     ]);
 
-    $sections = collect(app(MailingNavigation::class)->hostSections())
-        ->map(fn (array $section): array => [
-            $section['key'],
-            $section['label'],
-            $section['route'],
-            $section['permission']->value,
-        ])
-        ->all();
-
-    expect($sections)->toBe([
-        [
-            'lists',
-            'mailing::navigation.lists',
-            'mailing.lists.index',
-            MailingPermission::Lists->value,
-        ],
-        [
-            'suppressions',
-            'mailing::navigation.suppressions',
-            'mailing.suppressions.index',
-            MailingPermission::Subscribers->value,
-        ],
-    ]);
+    expect(fn (): array => app(MailingNavigation::class)->hostSections())
+        ->toThrow(InvalidArgumentException::class, 'Unknown mailing.host_sections: suppresions.');
 });
