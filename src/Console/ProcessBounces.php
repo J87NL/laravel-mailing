@@ -11,6 +11,7 @@ use J87NL\Mailing\Actions\ApplyBounce;
 use J87NL\Mailing\Actions\ApplyDeliveryEvent;
 use J87NL\Mailing\Bounces\DsnParser;
 use J87NL\Mailing\Bounces\DsnReport;
+use J87NL\Mailing\Contracts\BatchArchivingMailboxReader;
 use J87NL\Mailing\Contracts\MailboxReader;
 use J87NL\Mailing\Delivery\DeliveryEvent;
 use J87NL\Mailing\Enums\BounceType;
@@ -22,6 +23,8 @@ use J87NL\Mailing\Support\ConsentSource;
 
 class ProcessBounces extends Command
 {
+    public const int ARCHIVE_BATCH_SIZE = 100;
+
     private const string DSN_DRIVER = 'dsn';
 
     protected $signature = 'mailing:process-bounces';
@@ -31,6 +34,7 @@ class ProcessBounces extends Command
     public function handle(MailboxReader $reader, DsnParser $parser, ApplyBounce $applyBounce, ApplyDeliveryEvent $applyDeliveryEvent): int
     {
         $processed = 0;
+        $toArchive = [];
 
         foreach ($reader->unprocessed() as $message) {
             $report = $parser->parse($message->raw);
@@ -41,7 +45,22 @@ class ProcessBounces extends Command
                 $processed++;
             }
 
-            $reader->archive($message);
+            if (! $reader instanceof BatchArchivingMailboxReader) {
+                $reader->archive($message);
+
+                continue;
+            }
+
+            $toArchive[] = $message;
+
+            if (count($toArchive) >= self::ARCHIVE_BATCH_SIZE) {
+                $reader->archiveMany($toArchive);
+                $toArchive = [];
+            }
+        }
+
+        if ($reader instanceof BatchArchivingMailboxReader && $toArchive !== []) {
+            $reader->archiveMany($toArchive);
         }
 
         $this->info(sprintf('Processed %d delivery status notifications.', $processed));

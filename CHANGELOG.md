@@ -4,6 +4,10 @@ All notable changes to this package are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- `BatchArchivingMailboxReader`, an optional extension of the `MailboxReader` contract with `archiveMany(array $messages)`. When the bound reader implements it, `mailing:process-bounces` archives the messages of a run in batches of 100 instead of one `archive()` call per message, so a reader can move them in one IMAP operation. Readers that only implement `MailboxReader` work as before.
+
 ## [0.2.5] - 2026-10-22
 
 ### Changed

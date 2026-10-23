@@ -55,6 +55,10 @@ For every message the command:
    (driver `dsn`), so a report that was processed before is never applied again.
 4. Archives the message through the reader, whether or not it was applied.
 
+A reader that implements `BatchArchivingMailboxReader` archives in batches instead: the command
+collects the messages and calls `archiveMany()` once per 100 messages and once for the rest, so an
+IMAP reader can move them with one command. See [Contracts](../contracts.md#batcharchivingmailboxreader).
+
 Per recipient in the report:
 
 | `Action`  | `Status` | Result                                         |

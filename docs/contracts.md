@@ -87,6 +87,32 @@ interface MailboxReader
 `unprocessed()` returns the messages to look at, as `new MailboxMessage($id, $raw)`. `archive()` is
 called for every message after it was looked at, applied or not, so it is not returned again.
 
+### BatchArchivingMailboxReader
+
+Optional. A reader that can archive several messages in one operation, such as one IMAP `UID MOVE`,
+implements this interface instead of `MailboxReader`. It extends `MailboxReader`, so you still bind
+it to `mailing.mailbox_reader`.
+
+```php
+interface BatchArchivingMailboxReader extends MailboxReader
+{
+    /**
+     * @param  list<MailboxMessage>  $messages
+     */
+    public function archiveMany(array $messages): void;
+}
+```
+
+When the bound reader implements it, `mailing:process-bounces` never calls `archive()`. It applies
+the reports first and then calls `archiveMany()` with at most 100 messages at a time
+(`ProcessBounces::ARCHIVE_BATCH_SIZE`), in the order `unprocessed()` returned them. A reader that
+only implements `MailboxReader` keeps getting one `archive()` call per message.
+
+A message is archived later than with `archive()`. When a run stops before `archiveMany()`, the
+messages are returned again next time; a report that was applied before is never applied twice.
+Like `archive()`, `archiveMany()` should not throw for one message that cannot be moved: archive the
+others, report the failure and leave that message for the next run.
+
 ## HtmlSanitizer
 
 Cleans the campaign body on save, on render and before the link and text checks.
