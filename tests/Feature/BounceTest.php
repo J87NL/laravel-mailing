@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use J87NL\Mailing\Actions\ApplyBounce;
 use J87NL\Mailing\Actions\StartCampaign;
+use J87NL\Mailing\Console\ProcessBounces;
 use J87NL\Mailing\Contracts\MailboxReader;
 use J87NL\Mailing\Enums\BounceType;
 use J87NL\Mailing\Enums\SendStatus;
@@ -15,6 +16,7 @@ use J87NL\Mailing\Models\Send;
 use J87NL\Mailing\Models\Subscription;
 use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Sending\Verp;
+use J87NL\Mailing\Tests\Fakes\FakeBatchMailboxReader;
 use J87NL\Mailing\Tests\Fakes\FakeMailboxReader;
 
 function sentCampaign(string $email = 'lid@example.org'): Send
@@ -56,6 +58,12 @@ function deliverToBounceMailbox(string $raw): void
     if ($reader instanceof FakeMailboxReader) {
         $reader->messages[] = new MailboxMessage(sprintf('msg-%d', count($reader->messages) + 1), $raw);
     }
+}
+
+function useBatchReader(): void
+{
+    app()->forgetInstance(MailboxReader::class);
+    app()->singleton(MailboxReader::class, FakeBatchMailboxReader::class);
 }
 
 test('the VERP address only resolves with a valid signature', function (): void {
@@ -207,4 +215,68 @@ test('soft bounces count across spellings of the same address', function (): voi
         ->pluck('email')->unique()->all())->toBe(['lid@example.org'])
         ->and(Suppression::query()
             ->sole()->reason)->toBe(SuppressionReason::SoftBounces);
+});
+
+test('a reader without batch archiving archives every message on its own', function (): void {
+    $send = sentCampaign();
+
+    deliverToBounceMailbox(dsn('hard-bounce', $send));
+    deliverToBounceMailbox("From: someone@example.org\r\nSubject: Hallo\r\n\r\nGewoon een mail.");
+
+    $this->artisan('mailing:process-bounces')->assertSuccessful();
+
+    expect($send->fresh()->status)->toBe(SendStatus::Bounced)
+        ->and(app(MailboxReader::class)->archived)->toBe([
+            'msg-1',
+            'msg-2',
+        ]);
+});
+
+test('a reader with batch archiving archives the messages of a run in one call', function (): void {
+    useBatchReader();
+    $send = sentCampaign();
+
+    deliverToBounceMailbox(dsn('hard-bounce', $send));
+    deliverToBounceMailbox("From: someone@example.org\r\nSubject: Hallo\r\n\r\nGewoon een mail.");
+    deliverToBounceMailbox(dsn('hard-bounce', $send));
+
+    $this->artisan('mailing:process-bounces')
+        ->expectsOutputToContain('Processed 1 delivery status notifications.')
+        ->assertSuccessful();
+
+    expect($send->fresh()->status)->toBe(SendStatus::Bounced)
+        ->and(app(MailboxReader::class)->batches)->toBe([
+            [
+                'msg-1',
+                'msg-2',
+                'msg-3',
+            ],
+        ])
+        ->and(app(MailboxReader::class)->unprocessed())->toBe([]);
+});
+
+test('a reader with batch archiving gets the messages in batches of a fixed size', function (): void {
+    useBatchReader();
+
+    foreach (range(1, ProcessBounces::ARCHIVE_BATCH_SIZE + 1) as $number) {
+        deliverToBounceMailbox(sprintf("From: someone@example.org\r\nSubject: Hallo %d\r\n\r\nGewoon een mail.", $number));
+    }
+
+    $this->artisan('mailing:process-bounces')->assertSuccessful();
+
+    expect(array_map('count', app(MailboxReader::class)->batches))->toBe([
+        ProcessBounces::ARCHIVE_BATCH_SIZE,
+        1,
+    ])
+        ->and(app(MailboxReader::class)->unprocessed())->toBe([]);
+});
+
+test('a reader with batch archiving is not called for an empty mailbox', function (): void {
+    useBatchReader();
+
+    $this->artisan('mailing:process-bounces')
+        ->expectsOutputToContain('Processed 0 delivery status notifications.')
+        ->assertSuccessful();
+
+    expect(app(MailboxReader::class)->batches)->toBe([]);
 });
