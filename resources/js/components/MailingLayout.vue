@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { usePagePadding } from '@mailing/composables/usePagePadding';
 import type { MailingNavigationItem } from '@mailing/types';
 
 const page = usePage();
@@ -10,10 +11,15 @@ const items = computed<MailingNavigationItem[]>(
         (page.props.mailingNavigation as MailingNavigationItem[] | undefined) ??
         [],
 );
+
+const padded = usePagePadding();
 </script>
 
 <template>
-    <div class="flex flex-col gap-4 p-4 md:flex-row md:gap-6">
+    <div
+        class="flex flex-col gap-4 md:flex-row md:gap-6"
+        :class="{ 'p-4': padded }"
+    >
         <nav
             v-if="items.length > 0"
             :aria-label="$t('mailing::navigation.sections')"

@@ -140,14 +140,6 @@ class MailingServiceProvider extends ServiceProvider
             return;
         }
 
-        config()->push($key, [
-            'key' => 'mailing',
-            'label' => 'mailing::navigation.mailing',
-            'route' => 'mailing.home',
-            'icon' => 'Mail',
-            'permission' => MailingNavigation::ABILITY,
-            'active' => 'mailing.*',
-            'order' => 200,
-        ]);
+        config()->push($key, $this->app->make(MailingNavigation::class)->menuItem());
     }
 }

@@ -66,7 +66,8 @@ sections.
 ### The host menu item
 
 The package pushes one menu item into the config key named by `mailing.navigation_config_key`
-(default `j87nl.navigation`), unless an item with the key `mailing` is already there:
+(default `j87nl.navigation`), unless an item with the key `mailing` is already there. Without
+[host sections](#sections-in-the-host-menu) it is:
 
 ```php
 [
@@ -102,3 +103,48 @@ Inside the module every page shows a submenu with the sections the user may open
 The sections are defined in `J87NL\Mailing\Navigation\MailingNavigation`. The admin routes share
 them with the `ShareMailingNavigation` middleware as the Inertia prop `mailingNavigation`. See
 [Admin front-end](admin-frontend.md#the-module-submenu).
+
+### Sections in the host menu
+
+An application with its own settings menu can take sections out of the module and place them there.
+List their keys in `mailing.host_sections`:
+
+```php
+'host_sections' => [
+    'lists',
+    'suppressions',
+],
+```
+
+For those sections:
+
+- They leave the submenu, and their pages show no submenu at all, so they sit in your menu alone.
+- `mailing.home`, the `mailing.access` ability and so the `mailing` menu item only count the other
+  sections. A user who may only open host sections gets no `mailing` menu item.
+- The `mailing` menu item gets a list of route patterns as `active` instead of `mailing.*`:
+  `mailing.home` and the patterns of the other sections, so it is not marked on the pages of the
+  host sections.
+- Their routes, URLs and permissions do not change.
+- An unknown key throws an `InvalidArgumentException` when the package registers its menu item, so a
+  typo does not go unnoticed.
+
+The `active` patterns are only computed for the item the package pushes. An application that
+defines its own `mailing` item in `mailing.navigation_config_key` keeps its own `active` and must
+leave the host sections out of it itself.
+
+`MailingNavigation::hostSections()` returns those sections with the same shape as `sections()`, so
+your menu can use their name, route, permission and route patterns:
+
+```php
+[
+    'key' => 'lists',
+    'label' => 'mailing::navigation.lists',
+    'route' => 'mailing.lists.index',
+    'active' => ['mailing.lists.*'],
+    'permission' => MailingPermission::Lists,
+]
+```
+
+Gate each item on `permission->value`, the ability its routes enforce. `moduleSections()` returns the
+sections that stay in the module. `section_navigation => false` hides the submenu on every page,
+for an application that places all sections in its own menu.

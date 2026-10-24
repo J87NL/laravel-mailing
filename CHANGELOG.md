@@ -2,11 +2,15 @@
 
 All notable changes to this package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.6] - 2026-10-24
 
 ### Added
 
 - `BatchArchivingMailboxReader`, an optional extension of the `MailboxReader` contract with `archiveMany(array $messages)`. When the bound reader implements it, `mailing:process-bounces` archives the messages of a run in batches of 100 instead of one `archive()` call per message, so a reader can move them in one IMAP operation. Readers that only implement `MailboxReader` work as before.
+- `mailing.host_sections`: sections an application places in its own menu, for example a settings menu. They leave the module submenu, their pages show no submenu, and `mailing.home`, the `mailing.access` ability and the `active` patterns of the `mailing` menu item only count the other sections. Routes, URLs and permissions stay the same. An unknown key throws an `InvalidArgumentException`.
+- `MailingNavigation::hostSections()` and `moduleSections()` expose the sections (key, label, route, route patterns and permission) for a host menu.
+- `mailing.section_navigation`: `false` hides the module submenu on every page.
+- A layout that provides `pagePadding` as `false` drops the `p-4` padding of `MailingLayout`, for pages rendered inside a host layout that pads its content itself. Without a provider nothing changes.
 
 ## [0.2.5] - 2026-10-22
 
