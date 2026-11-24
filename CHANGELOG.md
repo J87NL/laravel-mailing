@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.7] - 2026-11-24
+
+### Fixed
+
+- `AttachmentFiles::fileRules()` takes its rules as variadic arguments, matching `Files::fileRules()` in tranquil-tools/laravel-form-builder 1.25, so an application on that version no longer hits a fatal signature mismatch. Passing one array of rules works as before.
+
 ## [0.2.6] - 2026-10-24
 
 ### Added

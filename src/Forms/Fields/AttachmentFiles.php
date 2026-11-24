@@ -13,12 +13,12 @@ class AttachmentFiles extends Files
      */
     protected array $fileRules = [];
 
-    /**
-     * @param  array<int, mixed>  $rules
-     */
-    public function fileRules(array $rules): static
+    public function fileRules(array|string|object ...$rules): static
     {
-        $this->fileRules = $rules;
+        $this->fileRules = collect($rules)
+            ->map(fn (mixed $rule): mixed => is_string($rule) ? explode('|', $rule) : $rule)
+            ->flatten()
+            ->all();
 
         return $this;
     }
