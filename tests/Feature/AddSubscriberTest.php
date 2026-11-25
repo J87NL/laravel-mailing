@@ -44,6 +44,23 @@ test('adding a subscriber needs the subscribers permission', function (): void {
         ->count())->toBe(0);
 });
 
+test('the subscriber list offers the add button, disabled while no list exists', function (): void {
+    $this->actingWithPermissions([MailingPermission::Subscribers->value]);
+
+    $page = $this->get(route('mailing.subscribers.index'), [
+        'X-Inertia' => 'true',
+    ])->assertOk();
+
+    expect($page->json('props.createUrl'))->toBe(route('mailing.subscribers.create'))
+        ->and($page->json('props.createDisabledReason'))->toBeNull();
+
+    $this->list->delete();
+
+    expect($this->get(route('mailing.subscribers.index'), [
+        'X-Inertia' => 'true',
+    ])->json('props.createDisabledReason'))->toBe(__('mailing::subscribers.errors.no_lists'));
+});
+
 test('adding a subscriber needs a list first', function (): void {
     $this->list->delete();
 

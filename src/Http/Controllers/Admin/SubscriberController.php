@@ -30,8 +30,13 @@ class SubscriberController extends Controller
 {
     public function index(): Response
     {
+        $hasLists = MailingList::query()
+            ->exists();
+
         return Inertia::render($this->page('subscribers_index'), [
             'subscribers' => SubscriberTable::build(),
+            'createUrl' => route('mailing.subscribers.create'),
+            'createDisabledReason' => $hasLists ? null : __('mailing::subscribers.errors.no_lists'),
             'breadcrumbs' => $this->breadcrumbs(),
         ]);
     }
