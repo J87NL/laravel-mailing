@@ -32,7 +32,7 @@ const padded = usePagePadding();
                 :aria-current="item.active ? 'page' : undefined"
                 class="rounded-md px-2 py-1.5 whitespace-nowrap text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
                 :class="{
-                    'bg-gray-100 font-medium dark:bg-gray-800': item.active,
+                    'bg-gray-900/5 font-medium text-gray-900 dark:bg-white/10 dark:text-white': item.active,
                 }"
             >
                 {{ item.title }}

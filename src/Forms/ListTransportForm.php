@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace J87NL\Mailing\Forms;
 
+use Illuminate\Support\Facades\Lang;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use J87NL\Mailing\Senders\ListSender;
 use TranquilTools\FormBuilder\AbstractForm;
@@ -104,10 +106,21 @@ class ListTransportForm extends AbstractForm
 
             $options[] = [
                 'value' => $name,
-                'label' => $name,
+                'label' => self::mailerLabel($name),
             ];
         }
 
         return $options;
+    }
+
+    private static function mailerLabel(string $name): string
+    {
+        $key = sprintf('mailing::lists.mailers.%s', $name);
+
+        if (! Lang::has($key)) {
+            return Str::headline($name);
+        }
+
+        return __($key);
     }
 }

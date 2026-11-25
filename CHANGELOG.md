@@ -2,6 +2,14 @@
 
 All notable changes to this package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] - 2026-11-25
+
+### Fixed
+
+- The mailer select on the transport page shows known mailers by name (Mailgun, SMTP, Lettermint, Postfix, Amazon SES, Postmark, Sendmail, Resend) through `mailing::lists.mailers.<name>`, and any other mailer as a headline of its key, instead of the raw config key.
+- The help text for mails per minute no longer assumes Postfix.
+- The active item of the section menu stays visible on a grey host background: it is marked with a translucent tint instead of `bg-gray-100`.
+
 ## [0.3.0] - 2026-11-25
 
 ### Added
@@ -114,6 +122,7 @@ All notable changes to this package are documented here. The format follows [Kee
 - Drivers for Postfix (VERP bounces, DSN parsing) and Lettermint (signed webhooks).
 - A sign-up block for `j87nl/laravel-cms`.
 
+[0.3.1]: https://github.com/J87NL/laravel-mailing/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/J87NL/laravel-mailing/compare/v0.2.7...v0.3.0
 [0.2.6]: https://github.com/J87NL/laravel-mailing/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/J87NL/laravel-mailing/compare/v0.2.4...v0.2.5

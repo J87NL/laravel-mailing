@@ -29,7 +29,7 @@ The transport of a list has its own form ("Sending" in the list table) and needs
 
 | Field                 | Description                                                                      |
 | --------------------- | -------------------------------------------------------------------------------- |
-| `mailer`              | A mailer from `config/mail.php`. `array`, `log`, `failover` and `roundrobin` are not offered. |
+| `mailer`              | A mailer from `config/mail.php`. `array`, `log`, `failover` and `roundrobin` are not offered. Known mailers are shown by name through `mailing::lists.mailers.<name>`, others as a headline of their key. |
 | `sender_identity`     | The From identity, see below.                                                    |
 | `throttle_per_minute` | Campaign sends per minute, 1 to 600.                                            |
 | `daily_cap`           | Campaign sends per day, 1 to 100000, or empty for no cap.                        |
