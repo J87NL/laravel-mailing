@@ -5,7 +5,7 @@ Mailing lists for Laravel: double opt-in sign-up, consent records, RFC 8058 one-
 ## Requirements
 
 - PHP 8.5 and Laravel 13
-- Inertia 3 with the TranquilTools form and table builders for the admin
+- Inertia 2 (2.0.16 or newer) or Inertia 3 with the TranquilTools form and table builders for the admin
 - Optionally [`j87nl/laravel-cms`](https://github.com/J87NL/laravel-cms), which gets a sign-up block
 
 ## Installation

@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-11-25
+
+### Changed
+
+- Inertia 2 is supported next to Inertia 3: `inertiajs/inertia-laravel` may be `^2.0.16` (the first version with flash data) or `^3.0`. The pages only call `setLayoutProps()` when `@inertiajs/vue3` provides it, so on Inertia 2 a layout reads the breadcrumbs from the `breadcrumbs` page prop.
+
 ## [0.2.7] - 2026-11-24
 
 ### Fixed
@@ -99,6 +105,7 @@ All notable changes to this package are documented here. The format follows [Kee
 - Drivers for Postfix (VERP bounces, DSN parsing) and Lettermint (signed webhooks).
 - A sign-up block for `j87nl/laravel-cms`.
 
+[0.3.0]: https://github.com/J87NL/laravel-mailing/compare/v0.2.7...v0.3.0
 [0.2.6]: https://github.com/J87NL/laravel-mailing/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/J87NL/laravel-mailing/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/J87NL/laravel-mailing/compare/v0.2.3...v0.2.4
