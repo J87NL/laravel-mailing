@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use J87NL\Mailing\Actions\SendConfirmation;
 use J87NL\Mailing\Enums\ConsentAction;
 use J87NL\Mailing\Enums\SubscriptionStatus;
@@ -125,6 +126,8 @@ test('imported addresses start pending and get one confirmation mail', function 
 });
 
 test('addresses with documented earlier consent are subscribed without a confirmation mail', function (): void {
+    Queue::fake();
+
     $this->post(route('mailing.imports.store'), [
         'list_id' => (string) $this->list->id,
         'file' => csvUpload("jan@example.org,Jan\npiet@example.org,Piet\n"),
@@ -136,6 +139,7 @@ test('addresses with documented earlier consent are subscribed without a confirm
         ->where('status', SubscriptionStatus::Subscribed)->count())->toBe(2);
 
     Mail::assertNothingQueued();
+    Queue::assertNothingPushed();
 
     $record = ConsentRecord::query()
         ->first();
@@ -259,6 +263,43 @@ test('an import keeps going when a confirmation mail fails and a re-import sends
 
     Mail::assertQueued(ConfirmSubscriptionMail::class, fn (ConfirmSubscriptionMail $mail): bool => $mail->hasTo('kapot@example.org'));
     Mail::assertQueued(ConfirmSubscriptionMail::class, 3);
+});
+
+test('an import with a consent note confirms a stranded pending subscription without any mail', function (): void {
+    Queue::fake();
+
+    $stranded = makeSubscription($this->list, 'kapot@example.org', SubscriptionStatus::Pending);
+
+    $this->post(route('mailing.imports.store'), [
+        'list_id' => (string) $this->list->id,
+        'file' => csvUpload("email\nkapot@example.org\nnieuw@example.org\n"),
+        'consent_source' => 'Oude ledenlijst',
+        'consent_note' => 'Map bij de penningmeester',
+    ])->assertRedirect(route('mailing.imports.index'))->assertSessionHasNoErrors();
+
+    $stranded->refresh();
+
+    expect($stranded->status)->toBe(SubscriptionStatus::Subscribed)
+        ->and($stranded->consent_at)->not->toBeNull()
+        ->and($stranded->confirmed_at)->not->toBeNull()
+        ->and($stranded->confirmation_sent_at)->toBeNull()
+        ->and($stranded->consent_source)->toBe('import: Oude ledenlijst')
+        ->and(MailingImport::query()
+            ->sole())
+        ->imported->toBe(2)
+        ->confirmations_sent->toBe(0);
+
+    $record = ConsentRecord::query()
+        ->where('subscriber_id', $stranded->subscriber_id)
+        ->sole();
+
+    expect($record->action)->toBe(ConsentAction::Imported)
+        ->and($record->note)->toBe('Map bij de penningmeester')
+        ->and($record->actor_id)->toBe(1);
+
+    Mail::assertNothingQueued();
+    Mail::assertNothingSent();
+    Queue::assertNothingPushed();
 });
 
 test('a pending row whose confirmation is already under way is never mailed twice by a second import', function (): void {

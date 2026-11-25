@@ -7,6 +7,7 @@ All notable changes to this package are documented here. The format follows [Kee
 ### Fixed
 
 - The import form no longer sends confirmation mails without the admin knowing. The help text of the consent note says plainly that a note subscribes the addresses directly without mail, and that without a note every address gets a confirmation mail and only joins after clicking it. While the note is empty, a `send_confirmations` checkbox ("I know every address gets a confirmation mail") must be ticked, otherwise the import is refused with a validation error and nothing is imported or sent. With a note the checkbox is ignored.
+- An import with a consent note never sends mail. A pending subscription on the list that never got a confirmation mail is now confirmed directly (`subscribed`, with `consent_at`, `confirmed_at` and an `imported` consent record holding the note and the acting admin) instead of getting a confirmation mail.
 
 ## [0.4.0] - 2026-11-25
 

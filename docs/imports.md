@@ -24,7 +24,8 @@ its own wording ("Would you like to receive the mailings of ...?"). Only address
 receive campaigns.
 
 **With a consent note** every new address becomes `subscribed` at once, without a confirmation
-mail. The note is stored on the `imported` consent record.
+mail, and so does a pending subscription that never got one. The note is stored on the `imported`
+consent record. An import with a note never sends or queues any mail.
 
 The help text of the consent note field says both outcomes. Because an empty note sends mail to
 every new address, the form asks the admin to acknowledge that with the `send_confirmations`
@@ -53,7 +54,7 @@ sent. A note of only whitespace counts as empty.
 | Invalid email address                                    | Skipped, reported with its line number         |
 | Duplicate within the file                                | Skipped                                        |
 | Suppressed address                                       | Skipped                                        |
-| Address with an existing subscription on the list        | Skipped, unless it is pending and never got a confirmation mail; then it is imported again and gets one |
+| Address with an existing subscription on the list        | Skipped, unless it is pending and never got a confirmation mail. Then it is imported again: without a consent note it gets a confirmation mail, with a note it is confirmed at once without mail |
 | New address                                              | Imported                                       |
 
 The subscriber is created when needed, and gets the name from the file when it has none.
