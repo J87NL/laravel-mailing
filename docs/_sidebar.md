@@ -9,6 +9,7 @@
     - [Suppressions](suppressions.md)
     - [Imports](imports.md)
     - [Consent records](consent-records.md)
+    - [Host API](host-api.md)
 - Public pages
     - [Sign-up](public/signup.md)
     - [Double opt-in](public/confirmation.md)

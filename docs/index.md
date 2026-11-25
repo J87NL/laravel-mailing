@@ -93,5 +93,6 @@ class MarketReminder extends ListMailable
 - [Sign-up](public/signup.md): the public form and its bot protection
 - [Composing campaigns](campaigns/composing.md): write and send a mailing
 - [Sending](campaigns/sending.md): throttles, retries and statuses
+- [Host API](host-api.md): subscribe and unsubscribe addresses from your own code
 - [Drivers](delivery/drivers.md): Postfix, Lettermint, Mailgun and your own
 - [Postfix delivery log](delivery/postfix.md): delivery results from Postfix's own log

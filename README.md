@@ -36,6 +36,21 @@ Point `mailing.layout` at your public Blade layout (it yields `title`, `head` an
 - **Postfix delivery log (optional):** with `mailing.postfix_log.path` (`MAILING_POSTFIX_LOG_PATH`) set, `mailing:read-postfix-log` runs every minute and reads Postfix's own log incrementally, following rotation to `<path>.1`. It links the queue id to the Message-ID of a send and moves the send from `handed_over` to `delivered` (with the 250 reply of the receiving server), `deferred` or `bounced`, through the same rules as webhooks and bounce messages: only a 5xx bounce suppresses, an expired message fails the send, and a status never moves backwards. Lines of other mail on the server are never stored. `--file` and `-` (standard input) cover backfills and journald-only hosts. Host setup, privacy and the rsyslog, logrotate and systemd examples are in [docs/delivery/postfix.md](docs/delivery/postfix.md).
 - **Retention:** `mailing:prune` runs daily and deletes unconfirmed sign-ups after 30 days, the consent records of unsubscribed addresses after 2 years and send records after 13 months, and the attachments of sent or cancelled campaigns 30 days after they finished (never before their download links expire). A renewed sign-up that is never confirmed only loses its own request records; the earlier unsubscribe history stays and the subscription is ended again. Suppressions stay.
 
+## Host API
+
+An application can manage addresses from its own code, for example when it creates, changes or deletes a customer account. Neither action sends mail; both record consent.
+
+```php
+use J87NL\Mailing\Actions\SubscribeAddress;
+use J87NL\Mailing\Actions\UnsubscribeAddress;
+
+app(SubscribeAddress::class)->handle($list, $email, consentSource: 'Customer portal, new user', consentNote: 'Opt-in checkbox ticked', actorId: $adminId, name: $name);
+
+app(UnsubscribeAddress::class)->handle($list, $email, source: 'Customer deleted', actorId: $adminId);
+```
+
+`SubscribeAddress` puts the address on the list as `subscribed` without a confirmation mail and records a `confirmed` consent record with the source `host: <consent source>`, the note and the acting user. A `pending` subscription is confirmed, a `subscribed` one is returned unchanged. It returns `null` for a suppressed address and for an address whose subscription on that list ended (unsubscribed, bounced or complained): only the subscriber can come back, through the public sign-up. An invalid address or an empty consent source throws an `InvalidArgumentException`. `UnsubscribeAddress` ends the subscription on that one list with an `unsubscribed` record and returns whether an active subscription was ended. For a changed address, subscribe the new one and unsubscribe the old one. See [docs/host-api.md](docs/host-api.md).
+
 ## Contracts
 
 | Contract                 | Default                                            | Purpose                            |

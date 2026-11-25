@@ -16,5 +16,6 @@ return [
         'webhook' => 'Melding van :detail',
         'unsubscribe-page' => 'Afmeldpagina',
         'postfix-log' => 'Maillog van Postfix',
+        'host' => 'Applicatie: :detail',
     ],
 ];

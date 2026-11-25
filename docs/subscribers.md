@@ -13,7 +13,7 @@ Email addresses are stored trimmed and in lowercase, on subscribers and on suppr
 | Status         | Meaning                                                        |
 | -------------- | -------------------------------------------------------------- |
 | `pending`      | Requested, waiting for the confirmation                        |
-| `subscribed`   | Confirmed, or imported with documented consent                 |
+| `subscribed`   | Confirmed, imported with documented consent, or added by the application |
 | `unsubscribed` | Unsubscribed by the subscriber or an admin                     |
 | `bounced`      | Ended by a hard bounce or repeated soft bounces                |
 | `complained`   | Ended by a spam complaint                                      |
@@ -65,6 +65,11 @@ never receives mail again and cannot sign up again. An existing suppression stay
 
 When the toggle is off, the package writes an `info` log entry with the actor id, the subscriber
 id and the list ids, because no record of the erasure remains in the database.
+
+## From your application
+
+An application can subscribe an address directly, without a confirmation mail, and unsubscribe it
+from one list with `SubscribeAddress` and `UnsubscribeAddress`. See [Host API](host-api.md).
 
 ## Names
 

@@ -14,6 +14,8 @@ need the `mailing.subscribers` permission. At least one list must exist.
 
 The consent source is stored on every subscription and consent record as `import: <source>`.
 
+To add single addresses from your own code instead of a file, see [Host API](host-api.md).
+
 ## With or without a consent note
 
 **Without a consent note** every new address becomes `pending` and gets a confirmation mail with

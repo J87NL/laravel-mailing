@@ -6,7 +6,6 @@ namespace J87NL\Mailing\Actions;
 
 use Generator;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 use J87NL\Mailing\Enums\ConsentAction;
 use J87NL\Mailing\Enums\SubscriptionStatus;
 use J87NL\Mailing\Models\MailingImport;
@@ -113,7 +112,7 @@ class ImportSubscribers
             return null;
         }
 
-        if (! $this->isValidEmail($email)) {
+        if (! EmailAddress::isValid($email)) {
             $import->skipped++;
 
             return __('mailing::imports.errors.invalid_email', [
@@ -169,19 +168,6 @@ class ImportSubscribers
         $import->confirmations_sent++;
 
         return null;
-    }
-
-    private function isValidEmail(string $email): bool
-    {
-        return Validator::make([
-            'email' => $email,
-        ], [
-            'email' => [
-                'required',
-                'email:rfc',
-                'max:254',
-            ],
-        ])->passes();
     }
 
     private function importRow(MailingList $list, string $email, string $name, string $source, ?string $consentNote, ?int $actorId): ?Subscription
