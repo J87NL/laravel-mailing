@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace J87NL\Mailing\Actions;
 
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use J87NL\Mailing\Enums\ConsentAction;
@@ -52,12 +53,25 @@ class SubscribeAddress
         $consentNote = trim((string) $consentNote);
         $name = mb_substr(trim((string) $name), 0, self::MAX_NAME_LENGTH);
 
+        try {
+            return $this->subscribe($list, $email, $source, $consentNote, $actorId, $name);
+        } catch (UniqueConstraintViolationException) {
+            return $this->subscribe($list, $email, $source, $consentNote, $actorId, $name);
+        }
+    }
+
+    private function subscribe(MailingList $list, string $email, string $source, string $consentNote, ?int $actorId, string $name): ?Subscription
+    {
         return DB::transaction(function () use ($list, $email, $source, $consentNote, $actorId, $name): ?Subscription {
             $subscriber = Subscriber::query()
                 ->lockForUpdate()
                 ->firstOrCreate([
                     'email' => $email,
                 ]);
+
+            if (Suppression::covers($email)) {
+                return null;
+            }
 
             $subscription = Subscription::query()
                 ->lockForUpdate()
