@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-11-25
+
+### Added
+
+- An "Add subscriber" button on the subscribers index opens a form (`SubscriberForm`) with the list, the address, an optional name, a required consent source and a required consent note. It needs `mailing.subscribers` and calls `SubscribeAddress` with the acting admin, so the address is `subscribed` at once with a `confirmed` consent record, and the admin lands on the subscriber page. An address that is already subscribed stays as it is with a neutral message. A suppressed address, or one whose subscription on that list ended, is refused with a validation error. The button is disabled while no list exists.
+
 ## [0.3.1] - 2026-11-25
 
 ### Fixed
@@ -122,6 +128,7 @@ All notable changes to this package are documented here. The format follows [Kee
 - Drivers for Postfix (VERP bounces, DSN parsing) and Lettermint (signed webhooks).
 - A sign-up block for `j87nl/laravel-cms`.
 
+[0.4.0]: https://github.com/J87NL/laravel-mailing/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/J87NL/laravel-mailing/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/J87NL/laravel-mailing/compare/v0.2.7...v0.3.0
 [0.2.6]: https://github.com/J87NL/laravel-mailing/compare/v0.2.5...v0.2.6
