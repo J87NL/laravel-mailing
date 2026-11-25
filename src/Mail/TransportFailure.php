@@ -30,7 +30,7 @@ class TransportFailure
             return (string) __('mailing::campaigns.transport_errors.unknown');
         }
 
-        $code = (int) $exception->getCode();
+        $code = self::code($exception);
 
         if ($code < 400 || $code >= 600) {
             return self::describeMessage(strtolower($exception->getMessage()));
@@ -43,9 +43,20 @@ class TransportFailure
         return self::describeSmtpCode($code);
     }
 
-    public static function isTemporary(TransportExceptionInterface $exception): bool
+    public static function code(TransportExceptionInterface $exception): int
     {
         $code = (int) $exception->getCode();
+
+        if ($code !== 0 || ! $exception instanceof HttpTransportException || ! is_null($exception->getPrevious())) {
+            return $code;
+        }
+
+        return $exception->getResponse()->getStatusCode();
+    }
+
+    public static function isTemporary(TransportExceptionInterface $exception): bool
+    {
+        $code = self::code($exception);
 
         if (self::carriesHttpStatus($exception)) {
             return $code === self::HTTP_TIMEOUT_STATUS || $code === self::HTTP_TOO_MANY_REQUESTS_STATUS || ($code >= 500 && $code < 600);

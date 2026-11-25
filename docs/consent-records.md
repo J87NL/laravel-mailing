@@ -45,7 +45,7 @@ constants on `J87NL\Mailing\Support\ConsentSource`:
 | `ONE_CLICK`        | `one-click`        |                                              |
 | `UNSUBSCRIBE_PAGE` | `unsubscribe-page` |                                              |
 | `DSN`              | `dsn`              |                                              |
-| `WEBHOOK`          | `webhook`          | The driver key, for example `lettermint`     |
+| `WEBHOOK`          | `webhook`          | The driver key, for example `lettermint` or `mailgun` |
 
 `ConsentSource::make('signup', '/newsletter')` builds `signup: /newsletter`.
 `ConsentSource::describe()` turns a stored source into the translated text from

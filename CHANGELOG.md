@@ -4,9 +4,17 @@ All notable changes to this package are documented here. The format follows [Kee
 
 ## [0.3.0] - 2026-11-25
 
+### Added
+
+- A `mailgun` driver (`MailgunDriver`) for Laravel's built-in `mailgun` mailer, mapped from the mailer name `mailgun`. It marks every campaign message with the send id as the Mailgun user variable `mailing_send_id` and a `campaign-<id>` tag, through Symfony's `MetadataHeader` and `TagHeader`, so the API, MIME and SMTP transports all carry them. Webhooks on `/mailing/webhooks/mailgun` are verified with the HMAC-SHA256 of timestamp and token and `mailing.drivers.mailgun.webhook_signing_key` (`MAILING_MAILGUN_WEBHOOK_SIGNING_KEY`) within `mailing.drivers.mailgun.tolerance` (300 seconds). `delivered`, `failed` (temporary as soft bounce, permanent with a 5xx code as hard bounce, other permanent failures as failed), `complained` and `unsubscribed` feed the same rules as Lettermint. Events without the user variable are ignored. Install `symfony/mailgun-mailer` and `symfony/http-client` to use it.
+
 ### Changed
 
 - Inertia 2 is supported next to Inertia 3: `inertiajs/inertia-laravel` may be `^2.0.16` (the first version with flash data) or `^3.0`. The pages only call `setLayoutProps()` when `@inertiajs/vue3` provides it, so on Inertia 2 a layout reads the breadcrumbs from the `breadcrumbs` page prop.
+
+### Fixed
+
+- An `HttpTransportException` without a code, as the Symfony Mailgun transport throws, is read by the HTTP status of its response. A 408, 429 or 5xx from such an API is retried and a 401 or 403 reads as refused credentials, instead of failing the send as interrupted.
 
 ## [0.2.7] - 2026-11-24
 

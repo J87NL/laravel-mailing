@@ -35,11 +35,15 @@
     "require-dev": {
         "j87nl/laravel-cms": "^0.1 || ^0.2",
         "orchestra/testbench": "^11.0",
-        "pestphp/pest": "^5.0"
+        "pestphp/pest": "^5.0",
+        "symfony/http-client": "^7.4|^8.0",
+        "symfony/mailgun-mailer": "^7.4|^8.0"
     },
     "suggest": {
         "j87nl/laravel-cms": "Registers the sign-up block in the CMS block registry.",
-        "lettermint/lettermint-laravel": "Provides the lettermint mail transport that the lettermint driver sends through."
+        "lettermint/lettermint-laravel": "Provides the lettermint mail transport that the lettermint driver sends through.",
+        "symfony/http-client": "Required by the mailgun mail transport.",
+        "symfony/mailgun-mailer": "Provides the mailgun mail transport that the mailgun driver sends through."
     },
     "autoload": {
         "psr-4": {

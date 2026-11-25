@@ -13,7 +13,7 @@ configured class anew on every call.
 | `DnsResolver`            | `mailing.preflight.dns_resolver`   | `NativeDnsResolver`            |
 | `SpamScorer`             | `mailing.preflight.spam_scorer`    | `RspamdSpamScorer`             |
 | `PostfixLogReader`       | `mailing.postfix_log.reader`       | `FilePostfixLogReader`         |
-| `MailingDriver`          | `mailing.drivers.<key>.class`      | `PostfixDriver`, `LettermintDriver` |
+| `MailingDriver`          | `mailing.drivers.<key>.class`      | `PostfixDriver`, `LettermintDriver`, `MailgunDriver` |
 
 All classes are resolved from the container, so they can have constructor dependencies.
 

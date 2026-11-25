@@ -27,7 +27,7 @@ Looks up the TXT record starting with `v=spf1`.
 Looks up `<selector>._domainkey.<from domain>` for every selector in
 `mailing.preflight.dkim_selectors.<driver>` (`MAILING_DKIM_SELECTORS_POSTFIX`).
 
-- Orange when no selectors are configured, which is the default for Lettermint.
+- Orange when no selectors are configured, which is the default for Lettermint and Mailgun.
 - Red when a selector has no record.
 
 ### DMARC

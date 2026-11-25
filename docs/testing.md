@@ -15,6 +15,10 @@ DNS resolver, a spam scorer and several failing mail transports (SMTP refusals, 
 errors). The Lettermint payloads in
 [`tests/fixtures/lettermint`](https://github.com/J87NL/laravel-mailing/tree/main/tests/fixtures/lettermint)
 are written by hand, see [Lettermint](delivery/lettermint.md#unverified-payloads). So are the
+Mailgun payloads in
+[`tests/fixtures/mailgun`](https://github.com/J87NL/laravel-mailing/tree/main/tests/fixtures/mailgun),
+see [Mailgun](delivery/mailgun.md#unverified-payloads); the Mailgun transport tests answer through
+Symfony's `MockHttpClient`, so no request leaves the machine. So are the
 Postfix log lines in `tests/fixtures/postfix` and `tests/Feature/PostfixLogTest.php`, after the
 format Postfix documents; the Postfix log tests feed lines through a fake `PostfixLogReader` or
 through temporary files.

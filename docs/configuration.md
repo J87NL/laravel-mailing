@@ -165,6 +165,7 @@ The domain in the `List-Id` header and in the Message-ID of campaign mails. Empt
     'postfix' => 'postfix',
     'smtp' => 'postfix',
     'lettermint' => 'lettermint',
+    'mailgun' => 'mailgun',
 ],
 
 'drivers' => [
@@ -176,6 +177,11 @@ The domain in the `List-Id` header and in the Message-ID of campaign mails. Empt
         'webhook_secret' => env('LETTERMINT_WEBHOOK_SECRET'),
         'tolerance' => 300,
     ],
+    'mailgun' => [
+        'class' => MailgunDriver::class,
+        'webhook_signing_key' => env('MAILING_MAILGUN_WEBHOOK_SIGNING_KEY'),
+        'tolerance' => 300,
+    ],
 ],
 ```
 
@@ -185,6 +191,8 @@ The domain in the `List-Id` header and in the Message-ID of campaign mails. Empt
 | `drivers.<key>.class`               | The `MailingDriver` class of a driver.                                              |
 | `drivers.lettermint.webhook_secret` | The secret that signs Lettermint webhooks.                                          |
 | `drivers.lettermint.tolerance`      | The maximum age of a webhook signature in seconds.                                  |
+| `drivers.mailgun.webhook_signing_key` | The HTTP webhook signing key of the Mailgun account.                              |
+| `drivers.mailgun.tolerance`         | The maximum age of a Mailgun webhook timestamp in seconds.                          |
 
 See [Drivers](delivery/drivers.md).
 
@@ -281,10 +289,12 @@ See [Postfix delivery log](delivery/postfix.md).
     'spf' => [
         'postfix' => array_values(array_filter(explode(',', (string) env('MAILING_SPF_POSTFIX', '')))),
         'lettermint' => [],
+        'mailgun' => [],
     ],
     'dkim_selectors' => [
         'postfix' => array_values(array_filter(explode(',', (string) env('MAILING_DKIM_SELECTORS_POSTFIX', '')))),
         'lettermint' => [],
+        'mailgun' => [],
     ],
 ],
 ```
@@ -434,6 +444,7 @@ See [Retention](retention.md).
 | `MAILING_MAILER`                 | `list_defaults.mailer`                   |
 | `MAILING_LIST_ID_DOMAIN`         | `list_id_domain`                         |
 | `LETTERMINT_WEBHOOK_SECRET`      | `drivers.lettermint.webhook_secret`      |
+| `MAILING_MAILGUN_WEBHOOK_SIGNING_KEY` | `drivers.mailgun.webhook_signing_key` |
 | `MAILING_QUEUE`                  | `sending.queue`                          |
 | `MAILING_ATTACHMENTS_DISK`       | `attachments.disk`                       |
 | `MAILING_BOUNCE_DOMAIN`          | `bounces.domain`                         |

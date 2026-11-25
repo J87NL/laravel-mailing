@@ -146,7 +146,7 @@ class SendCampaignMessage implements ShouldQueue
 
     private function failedTransport(Send $send, TransportExceptionInterface $exception, RetrySchedule $retries): void
     {
-        $code = (int) $exception->getCode();
+        $code = TransportFailure::code($exception);
 
         if ($code === 0) {
             $this->finish($send, SendStatus::Failed, Dispatcher::INTERRUPTED);

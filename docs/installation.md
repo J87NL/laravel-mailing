@@ -12,6 +12,7 @@
   own documentation.
 - Optional: [`j87nl/laravel-cms`](https://github.com/J87NL/laravel-cms), which gets a [sign-up block](public/cms-block.md).
 - Optional: `lettermint/lettermint-laravel` for the [Lettermint driver](delivery/lettermint.md).
+- Optional: `symfony/mailgun-mailer` and `symfony/http-client` for the [Mailgun driver](delivery/mailgun.md).
 
 ## 1. Install via Composer
 

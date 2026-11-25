@@ -1,0 +1,59 @@
+{
+    "signature": {
+        "timestamp": "1529006854",
+        "token": "a8ce0edb2dd8301dee6c2405235584e45aa91d1e9f979f3de0",
+        "signature": "d2271d12299f6592d9d44cd9d250f0704e4674c30d79d07c47a66f95ce71cf55"
+    },
+    "event-data": {
+        "id": "CPgfbmQMTCKtHW6uIWtuVe",
+        "timestamp": 1521472262.908181,
+        "log-level": "info",
+        "event": "delivered",
+        "delivery-status": {
+            "tls": true,
+            "mx-host": "mx.example.org",
+            "code": 250,
+            "description": "",
+            "session-seconds": 0.4331989288330078,
+            "utf8": true,
+            "attempt-no": 1,
+            "message": "OK",
+            "certificate-verified": true
+        },
+        "flags": {
+            "is-routed": false,
+            "is-authenticated": true,
+            "is-system-test": false,
+            "is-test-mode": false
+        },
+        "envelope": {
+            "transport": "smtp",
+            "sender": "info@mg.example.org",
+            "sending-ip": "209.61.154.250",
+            "targets": "lid@example.org"
+        },
+        "message": {
+            "headers": {
+                "to": "lid@example.org",
+                "message-id": "20261019120000.1.ABCDEF@mg.example.org",
+                "from": "Rommelmarkt <info@mg.example.org>",
+                "subject": "Nieuws van de rommelmarkt"
+            },
+            "attachments": [],
+            "size": 111
+        },
+        "recipient": "lid@example.org",
+        "recipient-domain": "example.org",
+        "storage": {
+            "url": "https://se.api.mailgun.net/v3/domains/mg.example.org/messages/message_key",
+            "key": "message_key"
+        },
+        "campaigns": [],
+        "tags": [
+            "campaign-1"
+        ],
+        "user-variables": {
+            "mailing_send_id": "__SEND__"
+        }
+    }
+}

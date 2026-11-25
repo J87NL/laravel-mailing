@@ -103,7 +103,8 @@ Every attempt counts towards the hourly limit. A test send records nothing as se
 `J87NL\Mailing\Mail\TransportFailure::describe()` turns the exception into the cause. An SMTP reply
 code and the HTTP status of a mail API are told apart: a code is read as an HTTP status when the
 exception is an `HttpTransportException`, or wraps an exception of the API client that is not a
-transport exception itself.
+transport exception itself. An `HttpTransportException` without a code, as the Symfony Mailgun
+transport throws, is read by the HTTP status of its response.
 
 | Code                         | Cause shown                                     |
 | ---------------------------- | ----------------------------------------------- |

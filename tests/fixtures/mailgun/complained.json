@@ -1,0 +1,37 @@
+{
+    "signature": {
+        "timestamp": "1529006854",
+        "token": "a8ce0edb2dd8301dee6c2405235584e45aa91d1e9f979f3de0",
+        "signature": "d2271d12299f6592d9d44cd9d250f0704e4674c30d79d07c47a66f95ce71cf55"
+    },
+    "event-data": {
+        "id": "-Agny091SquKnsrW2NEKUA",
+        "timestamp": 1521233123.501324,
+        "log-level": "warn",
+        "event": "complained",
+        "envelope": {
+            "sending-ip": "173.193.210.33"
+        },
+        "flags": {
+            "is-test-mode": false
+        },
+        "message": {
+            "headers": {
+                "to": "lid@example.org",
+                "message-id": "20261019120000.1.ABCDEF@mg.example.org",
+                "from": "Rommelmarkt <info@mg.example.org>",
+                "subject": "Nieuws van de rommelmarkt"
+            },
+            "attachments": [],
+            "size": 111
+        },
+        "recipient": "lid@example.org",
+        "campaigns": [],
+        "tags": [
+            "campaign-1"
+        ],
+        "user-variables": {
+            "mailing_send_id": "__SEND__"
+        }
+    }
+}

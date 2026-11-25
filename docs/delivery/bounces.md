@@ -1,7 +1,7 @@
 # Bounces
 
 Bounces reach the package in three ways: as delivery status notifications in a mailbox (Postfix),
-as webhook events (Lettermint), or from Postfix's own log (see
+as webhook events (Lettermint, Mailgun), or from Postfix's own log (see
 [Postfix delivery log](postfix.md)). All end up in the same rules.
 
 ## The rules
@@ -89,3 +89,7 @@ VERP, but they can still be found by Message-ID.
 
 The Lettermint `message.hard_bounced` and `message.soft_bounced` events go through the same
 `ApplyBounce` rules, with the source `webhook: lettermint`. See [Lettermint](lettermint.md).
+
+A Mailgun `failed` event with the severity `temporary` is a soft bounce, and one with the severity
+`permanent` and a 5xx code a hard bounce, with the source `webhook: mailgun`. See
+[Mailgun](mailgun.md).

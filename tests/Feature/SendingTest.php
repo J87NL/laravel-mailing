@@ -25,6 +25,9 @@ use J87NL\Mailing\Sending\Verp;
 use J87NL\Mailing\Tests\Fakes\ApiFailureTransport;
 use J87NL\Mailing\Tests\Fakes\FailingTransport;
 use J87NL\Mailing\Tests\Fakes\HttpStatusTransport;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Component\Mailer\Bridge\Mailgun\Transport\MailgunApiTransport;
 use Symfony\Component\Mailer\SentMessage;
 use Symfony\Component\Mailer\Transport\AbstractTransport;
 use Symfony\Component\Mime\Email;
@@ -537,7 +540,15 @@ test('a job that loses the claim gives its throttle slot back', function (): voi
 });
 
 test('an HTTP API answer is retried only for a timeout, rate limit or server error', function (string $transport, int $status, SendStatus $expected): void {
-    Mail::extend('api', fn (): AbstractTransport => $transport === 'http' ? new HttpStatusTransport($status) : new ApiFailureTransport($status));
+    Mail::extend('api', fn (): AbstractTransport => match ($transport) {
+        'http' => new HttpStatusTransport($status),
+        'mailgun' => new MailgunApiTransport('key-test', 'mg.example.org', null, new MockHttpClient(new MockResponse((string) json_encode([
+            'message' => 'Mailgun refused the message.',
+        ]), [
+            'http_code' => $status,
+        ]))),
+        default => new ApiFailureTransport($status),
+    });
     config()->set('mail.mailers.api', [
         'transport' => 'api',
     ]);
@@ -555,6 +566,7 @@ test('an HTTP API answer is retried only for a timeout, rate limit or server err
 })->with([
     'wrapped API error' => ['wrapped'],
     'HttpTransportException' => ['http'],
+    'Mailgun API' => ['mailgun'],
 ])->with([
     'unauthorized' => [
         401,
@@ -589,3 +601,25 @@ test('an HTTP API answer is retried only for a timeout, rate limit or server err
         SendStatus::Deferred,
     ],
 ]);
+
+test('a Mailgun API that cannot be reached fails the send as interrupted, because the mail may have been accepted', function (): void {
+    Mail::extend('api', fn (): AbstractTransport => new MailgunApiTransport('key-test', 'mg.example.org', null, new MockHttpClient(new MockResponse('', [
+        'error' => 'Connection timed out.',
+    ]))));
+    config()->set('mail.mailers.api', [
+        'transport' => 'api',
+    ]);
+
+    $this->list->update([
+        'mailer' => 'api',
+    ]);
+    makeSubscription($this->list);
+    app(StartCampaign::class)->handle(makeCampaign($this->list));
+
+    runDispatcher();
+
+    expect(Send::query()
+        ->sole())
+        ->status->toBe(SendStatus::Failed)
+        ->last_response->toBe(Dispatcher::INTERRUPTED);
+});
