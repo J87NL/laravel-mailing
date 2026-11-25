@@ -16,5 +16,6 @@ return [
         'webhook' => 'Notification from :detail',
         'unsubscribe-page' => 'Unsubscribe page',
         'postfix-log' => 'Postfix mail log',
+        'host' => 'Application: :detail',
     ],
 ];

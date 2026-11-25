@@ -4,12 +4,15 @@
 
 - PHP 8.5
 - Laravel 13
-- Inertia 3 (`inertiajs/inertia-laravel` and `@inertiajs/vue3`)
+- Inertia 2 or 3 (`inertiajs/inertia-laravel` 2.0.16+ or 3, and `@inertiajs/vue3` 2 or 3). With
+  Inertia 2 the layout reads the breadcrumbs from the page props, see
+  [Breadcrumbs in the layout](admin-frontend.md#breadcrumbs-in-the-layout).
 - `tranquil-tools/laravel-vue-form-builder` 1.10+ and `tranquil-tools/laravel-vue-table-builder` 1.9+
   for the admin. Composer installs them as dependencies; their front-end setup is described in their
   own documentation.
 - Optional: [`j87nl/laravel-cms`](https://github.com/J87NL/laravel-cms), which gets a [sign-up block](public/cms-block.md).
 - Optional: `lettermint/lettermint-laravel` for the [Lettermint driver](delivery/lettermint.md).
+- Optional: `symfony/mailgun-mailer` and `symfony/http-client` for the [Mailgun driver](delivery/mailgun.md).
 
 ## 1. Install via Composer
 

@@ -1,0 +1,56 @@
+{
+    "signature": {
+        "timestamp": "1529006854",
+        "token": "a8ce0edb2dd8301dee6c2405235584e45aa91d1e9f979f3de0",
+        "signature": "d2271d12299f6592d9d44cd9d250f0704e4674c30d79d07c47a66f95ce71cf55"
+    },
+    "event-data": {
+        "id": "G9Bn5sl1TC6nu79C8C0bwg",
+        "timestamp": 1521233195.375624,
+        "log-level": "error",
+        "event": "failed",
+        "severity": "permanent",
+        "reason": "bounce",
+        "delivery-status": {
+            "attempt-no": 1,
+            "message": "5.1.1 The email account that you tried to reach does not exist.",
+            "code": 550,
+            "description": "",
+            "session-seconds": 0.5
+        },
+        "flags": {
+            "is-routed": false,
+            "is-authenticated": true,
+            "is-system-test": false,
+            "is-test-mode": false
+        },
+        "envelope": {
+            "sender": "info@mg.example.org",
+            "transport": "smtp",
+            "targets": "lid@example.org"
+        },
+        "message": {
+            "headers": {
+                "to": "lid@example.org",
+                "message-id": "20261019120000.1.ABCDEF@mg.example.org",
+                "from": "Rommelmarkt <info@mg.example.org>",
+                "subject": "Nieuws van de rommelmarkt"
+            },
+            "attachments": [],
+            "size": 111
+        },
+        "recipient": "lid@example.org",
+        "recipient-domain": "example.org",
+        "storage": {
+            "url": "https://se.api.mailgun.net/v3/domains/mg.example.org/messages/message_key",
+            "key": "message_key"
+        },
+        "campaigns": [],
+        "tags": [
+            "campaign-1"
+        ],
+        "user-variables": {
+            "mailing_send_id": "__SEND__"
+        }
+    }
+}

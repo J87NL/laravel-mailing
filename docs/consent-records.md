@@ -23,7 +23,7 @@ Every change to the consent of an address is stored in `mailing_consent_records`
 | Action         | Written when                                                    | Note holds                                |
 | -------------- | --------------------------------------------------------------- | ----------------------------------------- |
 | `requested`    | A sign-up starts or restarts a pending subscription             | The consent wording shown on the form     |
-| `confirmed`    | The subscriber confirms                                         |                                           |
+| `confirmed`    | The subscriber confirms, or the application subscribes the address directly | The consent note passed by the application, if any |
 | `imported`     | A CSV import adds the address to a list                         | The consent note of the import, if any    |
 | `unsubscribed` | A subscription ends, by the subscriber, an admin, a bounce, a complaint or a provider event |               |
 | `suppressed`   | A new suppression is added for an address that has a subscriber | The suppression note                      |
@@ -45,7 +45,8 @@ constants on `J87NL\Mailing\Support\ConsentSource`:
 | `ONE_CLICK`        | `one-click`        |                                              |
 | `UNSUBSCRIBE_PAGE` | `unsubscribe-page` |                                              |
 | `DSN`              | `dsn`              |                                              |
-| `WEBHOOK`          | `webhook`          | The driver key, for example `lettermint`     |
+| `HOST`             | `host`             | The consent source passed to `SubscribeAddress`, or the source passed to `UnsubscribeAddress` |
+| `WEBHOOK`          | `webhook`          | The driver key, for example `lettermint` or `mailgun` |
 
 `ConsentSource::make('signup', '/newsletter')` builds `signup: /newsletter`.
 `ConsentSource::describe()` turns a stored source into the translated text from
@@ -75,7 +76,8 @@ app(RecordConsent::class)->handle(
 ```
 
 It only writes the record. To change a subscription, use the actions that also record consent, such
-as `Unsubscribe` or `SuppressAddress`.
+as `Unsubscribe` or `SuppressAddress`, or from your application `SubscribeAddress` and
+`UnsubscribeAddress`, see [Host API](host-api.md).
 
 ## Retention
 

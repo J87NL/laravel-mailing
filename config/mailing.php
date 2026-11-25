@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use J87NL\Mailing\Drivers\LettermintDriver;
+use J87NL\Mailing\Drivers\MailgunDriver;
 use J87NL\Mailing\Drivers\PostfixDriver;
 use J87NL\Mailing\Html\BasicHtmlSanitizer;
 use J87NL\Mailing\Mailbox\NullMailboxReader;
@@ -80,6 +81,7 @@ return [
         'postfix' => 'postfix',
         'smtp' => 'postfix',
         'lettermint' => 'lettermint',
+        'mailgun' => 'mailgun',
     ],
 
     'drivers' => [
@@ -89,6 +91,11 @@ return [
         'lettermint' => [
             'class' => LettermintDriver::class,
             'webhook_secret' => env('LETTERMINT_WEBHOOK_SECRET'),
+            'tolerance' => 300,
+        ],
+        'mailgun' => [
+            'class' => MailgunDriver::class,
+            'webhook_signing_key' => env('MAILING_MAILGUN_WEBHOOK_SIGNING_KEY'),
             'tolerance' => 300,
         ],
     ],
@@ -144,10 +151,12 @@ return [
         'spf' => [
             'postfix' => array_values(array_filter(explode(',', (string) env('MAILING_SPF_POSTFIX', '')))),
             'lettermint' => [],
+            'mailgun' => [],
         ],
         'dkim_selectors' => [
             'postfix' => array_values(array_filter(explode(',', (string) env('MAILING_DKIM_SELECTORS_POSTFIX', '')))),
             'lettermint' => [],
+            'mailgun' => [],
         ],
     ],
 

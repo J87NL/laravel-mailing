@@ -9,6 +9,7 @@
     - [Suppressions](suppressions.md)
     - [Imports](imports.md)
     - [Consent records](consent-records.md)
+    - [Host API](host-api.md)
 - Public pages
     - [Sign-up](public/signup.md)
     - [Double opt-in](public/confirmation.md)
@@ -22,6 +23,7 @@
 - Delivery
     - [Drivers](delivery/drivers.md)
     - [Lettermint](delivery/lettermint.md)
+    - [Mailgun](delivery/mailgun.md)
     - [Postfix delivery log](delivery/postfix.md)
     - [Bounces](delivery/bounces.md)
 - Reference

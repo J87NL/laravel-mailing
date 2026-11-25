@@ -1,0 +1,53 @@
+{
+    "signature": {
+        "timestamp": "1529006854",
+        "token": "a8ce0edb2dd8301dee6c2405235584e45aa91d1e9f979f3de0",
+        "signature": "d2271d12299f6592d9d44cd9d250f0704e4674c30d79d07c47a66f95ce71cf55"
+    },
+    "event-data": {
+        "id": "Fs7-5t81S2ms-iJ0Pf6Zkx",
+        "timestamp": 1521472262.908181,
+        "log-level": "warn",
+        "event": "failed",
+        "severity": "temporary",
+        "reason": "generic",
+        "delivery-status": {
+            "attempt-no": 1,
+            "message": "4.2.2 The email account that you tried to reach is over quota.",
+            "code": 452,
+            "description": "",
+            "retry-seconds": 600,
+            "session-seconds": 0.1
+        },
+        "flags": {
+            "is-routed": false,
+            "is-authenticated": true,
+            "is-system-test": false,
+            "is-test-mode": false
+        },
+        "envelope": {
+            "sender": "info@mg.example.org",
+            "transport": "smtp",
+            "targets": "lid@example.org"
+        },
+        "message": {
+            "headers": {
+                "to": "lid@example.org",
+                "message-id": "20261019120000.1.ABCDEF@mg.example.org",
+                "from": "Rommelmarkt <info@mg.example.org>",
+                "subject": "Nieuws van de rommelmarkt"
+            },
+            "attachments": [],
+            "size": 111
+        },
+        "recipient": "lid@example.org",
+        "recipient-domain": "example.org",
+        "campaigns": [],
+        "tags": [
+            "campaign-1"
+        ],
+        "user-variables": {
+            "mailing_send_id": "__SEND__"
+        }
+    }
+}

@@ -134,8 +134,24 @@ Without a provider every confirmation is declined, so those actions never run.
 
 ### Breadcrumbs in the layout
 
-Every page sets a `breadcrumbs` layout prop (`{ title: string; href: string }[]`) with Inertia's
-`setLayoutProps()`. The pages do not render them; your layout must read the prop and show them.
+Every page receives a `breadcrumbs` page prop (`{ title: string; href: string }[]`). On Inertia 3
+the page also sets it as a layout prop with `setLayoutProps()`. The pages do not render them; your
+layout must read them and show them.
+
+`setLayoutProps()` does not exist in `@inertiajs/vue3` 2. On Inertia 2 the pages skip it, and your
+layout reads the page prop instead:
+
+```ts
+import { usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import type { MailingBreadcrumb } from '@mailing/types';
+
+const page = usePage();
+const breadcrumbs = computed(() => (page.props.breadcrumbs ?? []) as MailingBreadcrumb[]);
+```
+
+A bundler warns that `setLayoutProps` is not exported by `@inertiajs/vue3` 2. The warning is
+harmless: the pages check for the function before they call it.
 
 ### Toasts in the layout
 

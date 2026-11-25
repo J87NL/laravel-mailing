@@ -12,6 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Inertia\Middleware as InertiaMiddleware;
 use Inertia\ServiceProvider as InertiaServiceProvider;
 use J87NL\Cms\CmsServiceProvider;
 use J87NL\Cms\Http\Middleware\AddSecurityHeaders;
@@ -75,6 +76,11 @@ abstract class TestCase extends BaseTestCase
         $app['config']->set('mailing.mailer_drivers.array', 'postfix');
         $app['config']->set('mailing.bounces.domain', 'rommelmarkt.test');
         $app['config']->set('mailing.drivers.lettermint.webhook_secret', 'whsec_test');
+        $app['config']->set('mailing.routes.admin_middleware', [
+            'web',
+            'auth',
+            InertiaMiddleware::class,
+        ]);
         $app['config']->set('mailing.routes.public_middleware', [
             AddSecurityHeaders::class,
         ]);

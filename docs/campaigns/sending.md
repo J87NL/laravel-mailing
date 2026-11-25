@@ -82,9 +82,14 @@ test send:
 
 A 5xx of a mail API can come after the API already accepted the message, so a retry can deliver it
 twice. The Lettermint driver sends an `Idempotency-Key` per send, so Lettermint can recognise the
-retry; a driver for another HTTP transport without such a key carries that risk.
+retry; a driver for another HTTP transport without such a key, such as Mailgun, carries that risk.
 
-See [Lettermint](../delivery/lettermint.md#errors-from-the-api).
+An `HttpTransportException` without a code, as the Symfony Mailgun transport throws, is read by the
+HTTP status of its response. When it wraps an error of the HTTP client itself (the API could not be
+reached), it has no status and the send fails as interrupted.
+
+See [Lettermint](../delivery/lettermint.md#errors-from-the-api) and
+[Mailgun](../delivery/mailgun.md#errors-from-the-api).
 
 ## Send statuses
 

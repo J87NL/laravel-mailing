@@ -24,6 +24,8 @@ class ConsentSource
 
     public const string POSTFIX_LOG = 'postfix-log';
 
+    public const string HOST = 'host';
+
     private const int MAX_DETAIL_LENGTH = 200;
 
     private const string SEPARATOR = ': ';

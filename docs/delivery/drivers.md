@@ -17,6 +17,7 @@ Return-Path, metadata or tags, and the handling of its webhooks. The driver neve
     'postfix' => 'postfix',
     'smtp' => 'postfix',
     'lettermint' => 'lettermint',
+    'mailgun' => 'mailgun',
 ],
 ```
 
@@ -39,6 +40,10 @@ other driver.
 ## Lettermint
 
 `J87NL\Mailing\Drivers\LettermintDriver`, key `lettermint`. See [Lettermint](lettermint.md).
+
+## Mailgun
+
+`J87NL\Mailing\Drivers\MailgunDriver`, key `mailgun`. See [Mailgun](mailgun.md).
 
 ## Writing your own driver
 
