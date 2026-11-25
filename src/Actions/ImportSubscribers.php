@@ -191,7 +191,7 @@ class ImportSubscribers
                 ]);
 
             if ($subscription->exists) {
-                return $this->claimStranded($subscription);
+                return $this->claimStranded($subscription, $subscriber, $list, $source, $consentNote, $actorId);
             }
 
             $confirmed = ! is_null($consentNote);
@@ -211,10 +211,30 @@ class ImportSubscribers
         });
     }
 
-    private function claimStranded(Subscription $subscription): ?Subscription
-    {
+    private function claimStranded(
+        Subscription $subscription,
+        Subscriber $subscriber,
+        MailingList $list,
+        string $source,
+        ?string $consentNote,
+        ?int $actorId,
+    ): ?Subscription {
         if ($subscription->status !== SubscriptionStatus::Pending || ! is_null($subscription->confirmation_sent_at)) {
             return null;
+        }
+
+        if (! is_null($consentNote)) {
+            $subscription->forceFill([
+                'status' => SubscriptionStatus::Subscribed,
+                'consent_source' => $source,
+                'consent_ip' => null,
+                'consent_at' => now(),
+                'confirmed_at' => now(),
+            ])->save();
+
+            $this->recordConsent->handle($subscriber, $list, ConsentAction::Imported, $source, null, $consentNote, $actorId);
+
+            return $subscription;
         }
 
         $subscription->forceFill([

@@ -8,6 +8,7 @@ use Illuminate\Validation\Rule;
 use J87NL\Mailing\Models\MailingList;
 use TranquilTools\FormBuilder\AbstractForm;
 use TranquilTools\FormBuilder\Fields\BaseField;
+use TranquilTools\FormBuilder\Fields\Checkbox;
 use TranquilTools\FormBuilder\Fields\File;
 use TranquilTools\FormBuilder\Fields\Select;
 use TranquilTools\FormBuilder\Fields\Submit;
@@ -79,6 +80,14 @@ class ImportForm extends AbstractForm
                     'nullable',
                     'string',
                     'max:1000',
+                ]),
+
+            Checkbox::make('send_confirmations')
+                ->label(__('mailing::imports.fields.send_confirmations'))
+                ->if("! String(form.consent_note ?? '').trim()")
+                ->rules([
+                    Rule::excludeIf(fn (): bool => filled(request()->input('consent_note'))),
+                    'accepted',
                 ]),
 
             Submit::make()->label(__('mailing::imports.actions.import')),

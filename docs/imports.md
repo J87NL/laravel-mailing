@@ -11,6 +11,7 @@ need the `mailing.subscribers` permission. At least one list must exist.
 | `file`           | A `.csv` or `.txt` file of at most `mailing.import.max_kilobytes` (default 1024 KB).     |
 | `consent_source` | Required. Where the addresses come from, for example "paper sign-up sheet at the May market". Up to 200 characters. |
 | `consent_note`   | Optional. Fill it in only when consent is documented elsewhere.                          |
+| `send_confirmations` | Shown only while the consent note is empty: "I know every address gets a confirmation mail". It must be ticked to import without a note. With a note it is ignored. |
 
 The consent source is stored on every subscription and consent record as `import: <source>`.
 
@@ -23,7 +24,14 @@ its own wording ("Would you like to receive the mailings of ...?"). Only address
 receive campaigns.
 
 **With a consent note** every new address becomes `subscribed` at once, without a confirmation
-mail. The note is stored on the `imported` consent record.
+mail, and so does a pending subscription that never got one. The note is stored on the `imported`
+consent record. An import with a note never sends or queues any mail.
+
+The help text of the consent note field says both outcomes. Because an empty note sends mail to
+every new address, the form asks the admin to acknowledge that with the `send_confirmations`
+checkbox. Without a note and without that checkbox the import is refused with a validation error on
+the checkbox (`mailing::imports.errors.confirmations_not_acknowledged`), and nothing is imported or
+sent. A note of only whitespace counts as empty.
 
 ## The file
 
@@ -46,7 +54,7 @@ mail. The note is stored on the `imported` consent record.
 | Invalid email address                                    | Skipped, reported with its line number         |
 | Duplicate within the file                                | Skipped                                        |
 | Suppressed address                                       | Skipped                                        |
-| Address with an existing subscription on the list        | Skipped, unless it is pending and never got a confirmation mail; then it is imported again and gets one |
+| Address with an existing subscription on the list        | Skipped, unless it is pending and never got a confirmation mail. Then it is imported again: without a consent note it gets a confirmation mail, with a note it is confirmed at once without mail |
 | New address                                              | Imported                                       |
 
 The subscriber is created when needed, and gets the name from the file when it has none.
@@ -81,6 +89,9 @@ $import = app(ImportSubscribers::class)->handle(
     $user->id,
 );
 ```
+
+`ImportSubscribers` itself has no acknowledgement: a `null` or empty note always means a
+confirmation mail per new address.
 
 The signature is
 `handle(MailingList $list, string $path, string $filename, string $consentSource, ?string $consentNote, ?int $actorId): MailingImport`.
