@@ -60,6 +60,8 @@ Route::middleware([
 
         Route::middleware(sprintf('can:%s', MailingPermission::Subscribers->value))->group(function (): void {
             Route::get('subscribers', [SubscriberController::class, 'index'])->name('subscribers.index');
+            Route::get('subscribers/create', [SubscriberController::class, 'create'])->name('subscribers.create');
+            Route::post('subscribers', [SubscriberController::class, 'store'])->name('subscribers.store');
             Route::get('subscribers/{subscriber}', [SubscriberController::class, 'show'])->name('subscribers.show');
             Route::get('subscribers/{subscriber}/erase', [SubscriberController::class, 'confirmErase'])->name('subscribers.erase');
             Route::delete('subscribers/{subscriber}', [SubscriberController::class, 'destroy'])->name('subscribers.destroy');

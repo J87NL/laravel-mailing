@@ -4,18 +4,25 @@ declare(strict_types=1);
 
 namespace J87NL\Mailing\Http\Controllers\Admin;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use J87NL\Mailing\Actions\EraseSubscriber;
+use J87NL\Mailing\Actions\SubscribeAddress;
 use J87NL\Mailing\Actions\Unsubscribe;
+use J87NL\Mailing\Enums\SubscriptionStatus;
 use J87NL\Mailing\Forms\EraseSubscriberForm;
+use J87NL\Mailing\Forms\SubscriberForm;
 use J87NL\Mailing\Models\ConsentRecord;
+use J87NL\Mailing\Models\MailingList;
 use J87NL\Mailing\Models\Subscriber;
 use J87NL\Mailing\Models\Subscription;
 use J87NL\Mailing\Models\Suppression;
 use J87NL\Mailing\Support\ConsentSource;
+use J87NL\Mailing\Support\EmailAddress;
 use J87NL\Mailing\Tables\SubscriberTable;
 use J87NL\Mailing\Tables\SubscriptionTable;
 
@@ -27,6 +34,64 @@ class SubscriberController extends Controller
             'subscribers' => SubscriberTable::build(),
             'breadcrumbs' => $this->breadcrumbs(),
         ]);
+    }
+
+    public function create(): Response|RedirectResponse
+    {
+        if (! MailingList::query()
+            ->exists()) {
+            return to_route('mailing.subscribers.index')->withErrors([
+                'subscriber' => __('mailing::subscribers.errors.no_lists'),
+            ]);
+        }
+
+        return $this->form(
+            __('mailing::subscribers.create.title'),
+            __('mailing::subscribers.create.description'),
+            [
+                ...$this->breadcrumbs(),
+                [
+                    'title' => __('mailing::subscribers.create.title'),
+                    'href' => route('mailing.subscribers.create'),
+                ],
+            ],
+            route('mailing.subscribers.index'),
+            SubscriberForm::make()
+                ->action(route('mailing.subscribers.store'))
+                ->method('POST'),
+        );
+    }
+
+    public function store(Request $request, SubscribeAddress $subscribeAddress): RedirectResponse
+    {
+        $validated = SubscriberForm::make()->validate($request);
+
+        $list = MailingList::query()
+            ->findOrFail((int) $validated['list_id']);
+
+        $email = EmailAddress::normalize((string) $validated['email']);
+        $wasSubscribed = $this->isSubscribed($list, $email);
+
+        $subscription = $subscribeAddress->handle(
+            $list,
+            $email,
+            (string) $validated['consent_source'],
+            (string) $validated['consent_note'],
+            $this->userId($request),
+            is_string($validated['name'] ?? null) ? $validated['name'] : null,
+        );
+
+        if (is_null($subscription)) {
+            throw ValidationException::withMessages([
+                'email' => Suppression::covers($email)
+                    ? __('mailing::subscribers.errors.suppressed')
+                    : __('mailing::subscribers.errors.left_list'),
+            ]);
+        }
+
+        $this->toast(__($wasSubscribed ? 'mailing::subscribers.flash.already_subscribed' : 'mailing::subscribers.flash.added'));
+
+        return to_route('mailing.subscribers.show', $subscription->subscriber_id);
     }
 
     public function show(Subscriber $subscriber): Response
@@ -119,6 +184,15 @@ class SubscriberController extends Controller
         $this->toast(__('mailing::subscribers.flash.unsubscribed'));
 
         return to_route('mailing.subscribers.show', $subscription->subscriber_id);
+    }
+
+    private function isSubscribed(MailingList $list, string $email): bool
+    {
+        return Subscription::query()
+            ->where('list_id', $list->id)
+            ->where('status', SubscriptionStatus::Subscribed)
+            ->whereHas('subscriber', fn (Builder $query): Builder => $query->where('email', $email))
+            ->exists();
     }
 
     /**
