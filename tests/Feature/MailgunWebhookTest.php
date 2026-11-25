@@ -234,6 +234,22 @@ test('Mailgun events without our send id are ignored without an error', function
     'unsubscribed',
 ]);
 
+test('a Mailgun send id that is not a plain number is ignored', function (string $sendId): void {
+    postMailgun(mailgunPayload('failed-permanent', null, [
+        'user-variables' => [
+            MailgunDriver::SEND_VARIABLE => sprintf($sendId, $this->send->id),
+        ],
+    ]))->assertOk()->assertJson([
+        'applied' => 0,
+    ]);
+
+    expect($this->send->fresh()->status)->toBe(SendStatus::HandedOver);
+})->with([
+    'exponent' => ['%de0'],
+    'decimal' => ['%d.0'],
+    'padded' => [' %d'],
+]);
+
 test('Mailgun events the package does not track are ignored', function (): void {
     postMailgun(mailgunPayload('delivered', $this->send, [
         'event' => 'opened',

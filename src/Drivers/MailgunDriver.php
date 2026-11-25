@@ -152,8 +152,9 @@ class MailgunDriver implements MailingDriver
     {
         $variables = is_array($data['user-variables'] ?? null) ? $data['user-variables'] : [];
         $sendId = $variables[self::SEND_VARIABLE] ?? null;
+        $sendId = is_int($sendId) ? (string) $sendId : $sendId;
 
-        if (! is_numeric($sendId) || (int) $sendId < 1) {
+        if (! is_string($sendId) || ! ctype_digit($sendId) || (int) $sendId < 1) {
             return null;
         }
 
