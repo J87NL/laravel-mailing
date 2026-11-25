@@ -7,6 +7,7 @@ use J87NL\Cms\Cache\PageCache;
 use J87NL\Mailing\Enums\ConsentAction;
 use J87NL\Mailing\Enums\SubscriptionStatus;
 use J87NL\Mailing\Enums\SuppressionReason;
+use J87NL\Mailing\Forms\ListTransportForm;
 use J87NL\Mailing\MailingPermission;
 use J87NL\Mailing\Models\ConsentRecord;
 use J87NL\Mailing\Models\MailingList;
@@ -422,4 +423,19 @@ test('campaigns, lists and subscribers open their detail page from the row', fun
         ->and(collect($listRow['rowActions'][0])->pluck('key')->all())->not->toContain('edit')
         ->and($subscriberRow['rowLinks'][0] ?? null)->toBe(route('mailing.subscribers.show', $subscription->subscriber_id))
         ->and($subscriberRow['rowActions'][0] ?? [])->toBe([]);
+});
+
+test('the transport form names known mailers and leaves internal ones out', function (): void {
+    config()->set('mail.mailers', [
+        'mailgun' => ['transport' => 'mailgun'],
+        'smtp' => ['transport' => 'smtp'],
+        'my_relay' => ['transport' => 'smtp'],
+        'log' => ['transport' => 'log'],
+    ]);
+
+    expect(ListTransportForm::mailerOptions())->toBe([
+        ['value' => 'mailgun', 'label' => 'Mailgun'],
+        ['value' => 'smtp', 'label' => 'SMTP'],
+        ['value' => 'my_relay', 'label' => 'My Relay'],
+    ]);
 });
