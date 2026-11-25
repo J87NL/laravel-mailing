@@ -8,6 +8,7 @@ All notable changes to this package are documented here. The format follows [Kee
 
 - The mailer select on the transport page shows known mailers by name (Mailgun, SMTP, Lettermint, Postfix, Amazon SES, Postmark, Sendmail, Resend) through `mailing::lists.mailers.<name>`, and any other mailer as a headline of its key, instead of the raw config key.
 - The help text for mails per minute no longer assumes Postfix.
+- The active item of the section menu stays visible on a grey host background: it is marked with a translucent tint instead of `bg-gray-100`.
 
 ## [0.3.0] - 2026-11-25
 
