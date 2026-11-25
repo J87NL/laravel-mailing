@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace J87NL\Mailing\Http\Controllers\Admin;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -13,7 +12,6 @@ use Inertia\Response;
 use J87NL\Mailing\Actions\EraseSubscriber;
 use J87NL\Mailing\Actions\SubscribeAddress;
 use J87NL\Mailing\Actions\Unsubscribe;
-use J87NL\Mailing\Enums\SubscriptionStatus;
 use J87NL\Mailing\Forms\EraseSubscriberForm;
 use J87NL\Mailing\Forms\SubscriberForm;
 use J87NL\Mailing\Models\ConsentRecord;
@@ -43,8 +41,10 @@ class SubscriberController extends Controller
 
     public function create(): Response|RedirectResponse
     {
-        if (! MailingList::query()
-            ->exists()) {
+        $hasLists = MailingList::query()
+            ->exists();
+
+        if (! $hasLists) {
             return to_route('mailing.subscribers.index')->withErrors([
                 'subscriber' => __('mailing::subscribers.errors.no_lists'),
             ]);
@@ -75,7 +75,6 @@ class SubscriberController extends Controller
             ->findOrFail((int) $validated['list_id']);
 
         $email = EmailAddress::normalize((string) $validated['email']);
-        $wasSubscribed = $this->isSubscribed($list, $email);
 
         $subscription = $subscribeAddress->handle(
             $list,
@@ -94,7 +93,9 @@ class SubscriberController extends Controller
             ]);
         }
 
-        $this->toast(__($wasSubscribed ? 'mailing::subscribers.flash.already_subscribed' : 'mailing::subscribers.flash.added'));
+        $isNewlySubscribed = $subscription->wasRecentlyCreated || $subscription->wasChanged('status');
+
+        $this->toast(__($isNewlySubscribed ? 'mailing::subscribers.flash.added' : 'mailing::subscribers.flash.already_subscribed'));
 
         return to_route('mailing.subscribers.show', $subscription->subscriber_id);
     }
@@ -189,15 +190,6 @@ class SubscriberController extends Controller
         $this->toast(__('mailing::subscribers.flash.unsubscribed'));
 
         return to_route('mailing.subscribers.show', $subscription->subscriber_id);
-    }
-
-    private function isSubscribed(MailingList $list, string $email): bool
-    {
-        return Subscription::query()
-            ->where('list_id', $list->id)
-            ->where('status', SubscriptionStatus::Subscribed)
-            ->whereHas('subscriber', fn (Builder $query): Builder => $query->where('email', $email))
-            ->exists();
     }
 
     /**

@@ -60,7 +60,7 @@ return [
     'errors' => [
         'no_lists' => 'Maak eerst een mailinglijst aan.',
         'suppressed' => 'Dit adres staat op de blokkeerlijst en kan niet worden aangemeld.',
-        'left_list' => 'Dit adres is eerder van deze lijst afgemeld of eraf gehaald. Alleen de abonnee zelf kan zich opnieuw aanmelden, via het aanmeldformulier.',
+        'left_list' => 'Dit adres staat niet meer op deze lijst. Alleen de abonnee zelf kan zich opnieuw aanmelden, via het aanmeldformulier.',
     ],
     'flash' => [
         'added' => 'Het adres is aangemeld.',

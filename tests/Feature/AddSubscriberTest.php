@@ -160,6 +160,42 @@ test('an address that unsubscribed from the list is refused', function (): void 
             ->count())->toBe(0);
 });
 
+test('a pending subscription is confirmed through the form', function (): void {
+    $subscription = makeSubscription($this->list, 'jan@example.org', SubscriptionStatus::Pending);
+
+    $this->actingWithPermissions([MailingPermission::Subscribers->value]);
+
+    $this->post(route('mailing.subscribers.store'), addSubscriberPayload($this->list->id))
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('mailing.subscribers.show', $subscription->subscriber_id))
+        ->assertInertiaFlash('toast.message', __('mailing::subscribers.flash.added'));
+
+    expect($subscription->fresh())
+        ->status->toBe(SubscriptionStatus::Subscribed)
+        ->confirmed_at->not->toBeNull()
+        ->and(ConsentRecord::query()
+            ->sole())
+        ->action->toBe(ConsentAction::Confirmed)
+        ->actor_id->toBe(1);
+});
+
+test('a bounced subscription is refused', function (): void {
+    $subscription = makeSubscription($this->list, 'jan@example.org', SubscriptionStatus::Bounced);
+
+    $this->actingWithPermissions([MailingPermission::Subscribers->value]);
+
+    $this->from(route('mailing.subscribers.create'))
+        ->post(route('mailing.subscribers.store'), addSubscriberPayload($this->list->id))
+        ->assertRedirect(route('mailing.subscribers.create'))
+        ->assertSessionHasErrors([
+            'email' => __('mailing::subscribers.errors.left_list'),
+        ]);
+
+    expect($subscription->fresh()->status)->toBe(SubscriptionStatus::Bounced)
+        ->and(ConsentRecord::query()
+            ->count())->toBe(0);
+});
+
 test('adding a subscriber needs a valid address, a known list and both consent fields', function (): void {
     $this->actingWithPermissions([MailingPermission::Subscribers->value]);
 

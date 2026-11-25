@@ -60,7 +60,7 @@ return [
     'errors' => [
         'no_lists' => 'Create a mailing list first.',
         'suppressed' => 'This address is on the suppression list and cannot be subscribed.',
-        'left_list' => 'This address was unsubscribed or removed from this list before. Only the subscriber can sign up again, through the sign-up form.',
+        'left_list' => 'This address is no longer on this list. Only the subscriber can sign up again, through the sign-up form.',
     ],
     'flash' => [
         'added' => 'The address has been subscribed.',
