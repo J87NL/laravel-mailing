@@ -53,6 +53,10 @@ class SubscribeAddress
         $consentNote = trim((string) $consentNote);
         $name = mb_substr(trim((string) $name), 0, self::MAX_NAME_LENGTH);
 
+        if (DB::transactionLevel() > 0) {
+            return $this->subscribe($list, $email, $source, $consentNote, $actorId, $name);
+        }
+
         try {
             return $this->subscribe($list, $email, $source, $consentNote, $actorId, $name);
         } catch (UniqueConstraintViolationException) {
@@ -63,15 +67,15 @@ class SubscribeAddress
     private function subscribe(MailingList $list, string $email, string $source, string $consentNote, ?int $actorId, string $name): ?Subscription
     {
         return DB::transaction(function () use ($list, $email, $source, $consentNote, $actorId, $name): ?Subscription {
+            if (Suppression::covers($email)) {
+                return null;
+            }
+
             $subscriber = Subscriber::query()
                 ->lockForUpdate()
                 ->firstOrCreate([
                     'email' => $email,
                 ]);
-
-            if (Suppression::covers($email)) {
-                return null;
-            }
 
             $subscription = Subscription::query()
                 ->lockForUpdate()

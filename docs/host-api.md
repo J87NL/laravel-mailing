@@ -51,6 +51,12 @@ confirmation mail. An invalid address or an empty consent source throws an
 `InvalidArgumentException`. Use `Suppression::covers($email)` to tell a suppressed address apart
 from one that left the list.
 
+When two calls subscribe the same new address at the same time, one of them hits a unique index.
+Called outside a database transaction, `SubscribeAddress` then tries once more and finds the row
+the other call created. Called inside a transaction of your own, it does not retry: the
+`UniqueConstraintViolationException` is thrown, because the outer transaction may be unusable after
+the failed insert. Catch it there, or call `SubscribeAddress` after your transaction commits.
+
 ## Unsubscribing an address from one list
 
 `J87NL\Mailing\Actions\UnsubscribeAddress` ends the subscription of an address on one list:

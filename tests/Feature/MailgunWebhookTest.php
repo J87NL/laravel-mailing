@@ -248,7 +248,21 @@ test('a Mailgun send id that is not a plain number is ignored', function (string
     'exponent' => ['%de0'],
     'decimal' => ['%d.0'],
     'padded' => [' %d'],
+    'zero' => ['0'],
+    'negative' => ['-1'],
 ]);
+
+test('a Mailgun send id sent as a JSON number is applied', function (): void {
+    postMailgun(mailgunPayload('failed-permanent', null, [
+        'user-variables' => [
+            MailgunDriver::SEND_VARIABLE => $this->send->id,
+        ],
+    ]))->assertOk()->assertJson([
+        'applied' => 1,
+    ]);
+
+    expect($this->send->fresh()->status)->toBe(SendStatus::Bounced);
+});
 
 test('Mailgun events the package does not track are ignored', function (): void {
     postMailgun(mailgunPayload('delivered', $this->send, [
