@@ -40,6 +40,48 @@ test('an import needs a consent source', function (): void {
         ->count())->toBe(0);
 });
 
+test('an import without a consent note is refused until the admin acknowledges the confirmation mails', function (array $input): void {
+    $this->post(route('mailing.imports.store'), [
+        'list_id' => (string) $this->list->id,
+        'file' => csvUpload("email\njan@example.org\n"),
+        'consent_source' => 'Intekenlijst markt mei',
+        ...$input,
+    ])->assertSessionHasErrors([
+        'send_confirmations' => __('mailing::imports.errors.confirmations_not_acknowledged'),
+    ]);
+
+    expect(Subscription::query()
+        ->count())->toBe(0)
+        ->and(MailingImport::query()
+            ->count())->toBe(0);
+
+    Mail::assertNothingQueued();
+})->with([
+    'checkbox missing' => [[]],
+    'checkbox unticked' => [[
+        'send_confirmations' => '0',
+    ]],
+    'blank consent note' => [[
+        'consent_note' => '   ',
+        'send_confirmations' => '0',
+    ]],
+]);
+
+test('an import with a consent note ignores the unticked acknowledgement', function (): void {
+    $this->post(route('mailing.imports.store'), [
+        'list_id' => (string) $this->list->id,
+        'file' => csvUpload("email\njan@example.org\n"),
+        'consent_source' => 'Oude ledenlijst',
+        'consent_note' => 'Map bij de penningmeester',
+        'send_confirmations' => '0',
+    ])->assertRedirect(route('mailing.imports.index'))->assertSessionHasNoErrors();
+
+    expect(Subscription::query()
+        ->sole()->status)->toBe(SubscriptionStatus::Subscribed);
+
+    Mail::assertNothingQueued();
+});
+
 test('imported addresses start pending and get one confirmation mail', function (): void {
     makeSubscription($this->list, 'al@example.org');
     Suppression::query()
@@ -52,6 +94,7 @@ test('imported addresses start pending and get one confirmation mail', function 
         'list_id' => (string) $this->list->id,
         'file' => csvUpload("email;name\nJan@Example.org;Jan\npiet@example.org;\njan@example.org;Dubbel\nal@example.org;Al\nweg@example.org;Weg\ngeen-adres;Fout\n"),
         'consent_source' => 'Intekenlijst markt mei',
+        'send_confirmations' => '1',
     ])->assertRedirect(route('mailing.imports.index'))->assertSessionHasErrors('import');
 
     $pending = Subscription::query()
@@ -126,6 +169,7 @@ test('an import reads Dutch headers behind a byte order mark and reports rows ov
         'list_id' => (string) $this->list->id,
         'file' => csvUpload("\u{FEFF}Naam;E-mailadres\nJan;jan@example.org\nPiet;piet@example.org\nKees;kees@example.org\n"),
         'consent_source' => 'Intekenlijst markt mei',
+        'send_confirmations' => '1',
     ])->assertSessionHasErrors([
         'import' => __('mailing::imports.errors.too_many_rows', ['max' => 2]),
     ]);
@@ -148,6 +192,7 @@ test('import confirmations use their own wording and are spread over time', func
         'list_id' => (string) $this->list->id,
         'file' => csvUpload("email\na@example.org\nb@example.org\nc@example.org\n"),
         'consent_source' => 'Intekenlijst markt mei',
+        'send_confirmations' => '1',
     ])->assertRedirect(route('mailing.imports.index'));
 
     $mails = Mail::queued(ConfirmSubscriptionMail::class);
@@ -179,6 +224,7 @@ test('an import keeps going when a confirmation mail fails and a re-import sends
         'list_id' => (string) $this->list->id,
         'file' => csvUpload($csv),
         'consent_source' => 'Intekenlijst markt mei',
+        'send_confirmations' => '1',
     ])->assertRedirect(route('mailing.imports.index'));
 
     Mail::assertQueued(ConfirmSubscriptionMail::class, 2);
@@ -208,6 +254,7 @@ test('an import keeps going when a confirmation mail fails and a re-import sends
         'list_id' => (string) $this->list->id,
         'file' => csvUpload($csv),
         'consent_source' => 'Intekenlijst markt mei',
+        'send_confirmations' => '1',
     ])->assertRedirect(route('mailing.imports.index'));
 
     Mail::assertQueued(ConfirmSubscriptionMail::class, fn (ConfirmSubscriptionMail $mail): bool => $mail->hasTo('kapot@example.org'));
@@ -224,6 +271,7 @@ test('a pending row whose confirmation is already under way is never mailed twic
         'list_id' => (string) $this->list->id,
         'file' => csvUpload("email\nonderweg@example.org\n"),
         'consent_source' => 'Intekenlijst markt mei',
+        'send_confirmations' => '1',
     ])->assertRedirect(route('mailing.imports.index'));
 
     Mail::assertNothingQueued();

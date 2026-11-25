@@ -57,7 +57,9 @@ class ImportController extends Controller
 
     public function store(Request $request, ImportSubscribers $importSubscribers): RedirectResponse
     {
-        $validated = ImportForm::make()->validate($request);
+        $validated = ImportForm::make()->validate($request, [
+            'send_confirmations.accepted' => __('mailing::imports.errors.confirmations_not_acknowledged'),
+        ]);
         $file = $request->file('file');
 
         if (! $file instanceof UploadedFile) {
