@@ -46,6 +46,9 @@ The result depends on what the address already has on that list:
 | `unsubscribed`, `bounced`, `complained` | `null`: the address left the list and is never subscribed again this way              |
 | Any, while the address is suppressed | `null`: a suppressed address is never subscribed                                         |
 
+The "Add subscriber" form in the admin calls `SubscribeAddress` with the acting admin and shows
+these outcomes to the admin, see [Subscribers](subscribers.md#adding-an-address).
+
 Only the subscriber can come back after leaving a list, through the public sign-up and its
 confirmation mail. An invalid address or an empty consent source throws an
 `InvalidArgumentException`. Use `Suppression::covers($email)` to tell a suppressed address apart

@@ -38,6 +38,24 @@ The index has an export button. It downloads `subscribers-YYYY-MM-DD.csv` with t
 table, through the export route of the table builder. The export applies the current search and
 filter.
 
+## Adding an address
+
+The index has an "Add subscriber" button. It opens a form at `/admin/mailing/subscribers/create`
+with the list, the address, an optional name, a consent source and a consent note (why this address
+may receive mail). Both consent fields are required. The button is disabled, with the reason, while
+no list exists.
+
+The form calls [`SubscribeAddress`](host-api.md) with the acting admin, so the address is
+`subscribed` at once without a confirmation mail, with a `confirmed` consent record that holds the
+source `host: <consent source>`, the note and the admin. The admin then lands on the subscriber
+page.
+
+- An address that is already subscribed to that list stays as it is. Nothing is recorded and the
+  message says it was already subscribed.
+- A suppressed address is refused with a validation error on the address.
+- An address whose subscription on that list ended (unsubscribed, bounced or complained) is refused
+  as well. Only the subscriber can come back, through the public sign-up.
+
 ## The subscriber page
 
 The subscriber page shows:
@@ -69,7 +87,8 @@ id and the list ids, because no record of the erasure remains in the database.
 ## From your application
 
 An application can subscribe an address directly, without a confirmation mail, and unsubscribe it
-from one list with `SubscribeAddress` and `UnsubscribeAddress`. See [Host API](host-api.md).
+from one list with `SubscribeAddress` and `UnsubscribeAddress`. See [Host API](host-api.md). The
+[add form](#adding-an-address) in the admin uses the same action.
 
 ## Names
 

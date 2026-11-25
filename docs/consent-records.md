@@ -23,7 +23,7 @@ Every change to the consent of an address is stored in `mailing_consent_records`
 | Action         | Written when                                                    | Note holds                                |
 | -------------- | --------------------------------------------------------------- | ----------------------------------------- |
 | `requested`    | A sign-up starts or restarts a pending subscription             | The consent wording shown on the form     |
-| `confirmed`    | The subscriber confirms, or the application subscribes the address directly | The consent note passed by the application, if any |
+| `confirmed`    | The subscriber confirms, or the application or an admin subscribes the address directly | The consent note passed by the application or the admin, if any |
 | `imported`     | A CSV import adds the address to a list                         | The consent note of the import, if any    |
 | `unsubscribed` | A subscription ends, by the subscriber, an admin, a bounce, a complaint or a provider event |               |
 | `suppressed`   | A new suppression is added for an address that has a subscriber | The suppression note                      |
@@ -45,7 +45,7 @@ constants on `J87NL\Mailing\Support\ConsentSource`:
 | `ONE_CLICK`        | `one-click`        |                                              |
 | `UNSUBSCRIBE_PAGE` | `unsubscribe-page` |                                              |
 | `DSN`              | `dsn`              |                                              |
-| `HOST`             | `host`             | The consent source passed to `SubscribeAddress`, or the source passed to `UnsubscribeAddress` |
+| `HOST`             | `host`             | The consent source passed to `SubscribeAddress` (also by the admin add form), or the source passed to `UnsubscribeAddress` |
 | `WEBHOOK`          | `webhook`          | The driver key, for example `lettermint` or `mailgun` |
 
 `ConsentSource::make('signup', '/newsletter')` builds `signup: /newsletter`.

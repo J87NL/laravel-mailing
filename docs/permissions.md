@@ -9,7 +9,7 @@ defines itself, see [below](#the-access-ability).
 | Ability                  | Enum case       | Grants                                                              |
 | ------------------------ | --------------- | ------------------------------------------------------------------- |
 | `mailing.lists`          | `Lists`         | Lists: index, create, edit, delete                                  |
-| `mailing.subscribers`    | `Subscribers`   | Subscribers, suppressions and imports                               |
+| `mailing.subscribers`    | `Subscribers`   | Subscribers (including adding an address), suppressions and imports |
 | `mailing.settings`       | `Settings`      | The transport of a list, and lifting a suppression                  |
 | `mailing.campaigns.edit` | `CampaignsEdit` | Campaigns: index, show, create, edit, delete                        |
 | `mailing.campaigns.send` | `CampaignsSend` | Schedule, unschedule, pause, resume, cancel, retry and test sends   |

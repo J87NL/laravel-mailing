@@ -7,6 +7,10 @@ return [
         'title' => 'Subscribers',
         'description' => 'Everyone who ever signed up, with the history per address.',
     ],
+    'create' => [
+        'title' => 'Add subscriber',
+        'description' => 'Puts an address on a list directly, without a confirmation mail. Only do this when you can show that the address gave consent.',
+    ],
     'show' => [
         'subscriptions' => 'Lists',
         'history' => 'History',
@@ -32,8 +36,14 @@ return [
         'ip' => 'IP address',
         'note' => 'Note',
         'at' => 'When',
+        'consent_note' => 'Why may this address receive mail?',
+    ],
+    'help' => [
+        'consent_source' => 'For example "signed up at the counter" or "request by mail of 12 May".',
+        'consent_note' => 'Record how and when the consent was given. This goes into the history of the address.',
     ],
     'actions' => [
+        'add' => 'Add subscriber',
         'export' => 'Export as CSV',
         'unsubscribe' => 'Unsubscribe',
         'unsubscribe_confirm' => 'Are you sure you want to unsubscribe this address from this list?',
@@ -47,7 +57,14 @@ return [
         'submit' => 'Erase permanently',
         'suppression_note' => 'Data erased on request',
     ],
+    'errors' => [
+        'no_lists' => 'Create a mailing list first.',
+        'suppressed' => 'This address is on the suppression list and cannot be subscribed.',
+        'left_list' => 'This address is no longer on this list. Only the subscriber can sign up again, through the sign-up form.',
+    ],
     'flash' => [
+        'added' => 'The address has been subscribed.',
+        'already_subscribed' => 'This address was already on this list. Nothing was changed.',
         'unsubscribed' => 'The address has been unsubscribed.',
         'erased' => 'The address and its data have been erased.',
     ],
